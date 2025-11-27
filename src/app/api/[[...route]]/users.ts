@@ -19,26 +19,38 @@ const app = new Hono()
       })
     ),
     async (c) => {
-      const { name, email, password } = c.req.valid("json");
+      try {
+        const { name, email, password } = c.req.valid("json");
 
-      const hashedPassword = await bcrypt.hash(password, 12);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
-      const query = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email));
+        const query = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email));
 
-      if (query[0]) {
-        return c.json({ error: "Email already in use" }, 400);
+        if (query[0]) {
+          return c.json({ error: "Email already in use" }, 400);
+        }
+
+        await db.insert(users).values({
+          email,
+          name,
+          password: hashedPassword,
+        });
+
+        return c.json(null, 200);
+      } catch (error) {
+        console.error("Error creating user:", error);
+        return c.json(
+          {
+            error: "Failed to create user",
+            details: error instanceof Error ? error.message : "Unknown error",
+            stack: process.env.NODE_ENV === "development" ? (error instanceof Error ? error.stack : undefined) : undefined
+          },
+          500
+        );
       }
-
-      await db.insert(users).values({
-        email,
-        name,
-        password: hashedPassword,
-      });
-      
-      return c.json(null, 200);
     },
   );
 
