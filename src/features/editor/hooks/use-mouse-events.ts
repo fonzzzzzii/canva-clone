@@ -13,6 +13,10 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
   useEffect(() => {
     if (!canvas) return;
 
+    // Get the canvas DOM element
+    const canvasElement = canvas.getElement();
+    const upperCanvasElement = canvas.upperCanvasEl;
+
     const handleMouseWheel = (opt: fabric.IEvent) => {
       const event = opt.e as WheelEvent;
 
@@ -38,9 +42,8 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
       canvas.requestRenderAll();
     };
 
-    const handleMouseDown = (opt: fabric.IEvent) => {
-      const event = opt.e as MouseEvent;
-
+    // Use native DOM events for middle mouse button (more reliable)
+    const handleMouseDown = (event: MouseEvent) => {
       // Check for middle mouse button (button === 1)
       if (event.button === 1) {
         event.preventDefault();
@@ -48,16 +51,17 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
         lastPosX.current = event.clientX;
         lastPosY.current = event.clientY;
 
-        // Change cursor to grab/grabbing
-        canvas.defaultCursor = 'grabbing';
-        canvas.setCursor('grabbing');
+        // Change cursor to grabbing
+        if (upperCanvasElement) {
+          upperCanvasElement.style.cursor = 'grabbing';
+        }
       }
     };
 
-    const handleMouseMove = (opt: fabric.IEvent) => {
+    const handleMouseMove = (event: MouseEvent) => {
       if (!isPanning.current) return;
 
-      const event = opt.e as MouseEvent;
+      event.preventDefault();
       const vpt = canvas.viewportTransform;
 
       if (!vpt) return;
@@ -78,29 +82,43 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
       lastPosY.current = event.clientY;
     };
 
-    const handleMouseUp = (opt: fabric.IEvent) => {
-      const event = opt.e as MouseEvent;
-
+    const handleMouseUp = (event: MouseEvent) => {
       // Reset panning state on middle mouse button release
       if (event.button === 1) {
         isPanning.current = false;
-        canvas.defaultCursor = 'default';
-        canvas.setCursor('default');
+        if (upperCanvasElement) {
+          upperCanvasElement.style.cursor = 'default';
+        }
+      }
+    };
+
+    // Prevent context menu on middle mouse button
+    const handleContextMenu = (event: MouseEvent) => {
+      if (event.button === 1 || isPanning.current) {
+        event.preventDefault();
       }
     };
 
     // Register event listeners
     canvas.on('mouse:wheel', handleMouseWheel);
-    canvas.on('mouse:down', handleMouseDown);
-    canvas.on('mouse:move', handleMouseMove);
-    canvas.on('mouse:up', handleMouseUp);
+
+    // Add native DOM listeners for panning (more reliable for middle button)
+    upperCanvasElement.addEventListener('mousedown', handleMouseDown);
+    upperCanvasElement.addEventListener('mousemove', handleMouseMove);
+    upperCanvasElement.addEventListener('mouseup', handleMouseUp);
+    upperCanvasElement.addEventListener('contextmenu', handleContextMenu);
+
+    // Also listen on window for mouseup (in case mouse leaves canvas while panning)
+    window.addEventListener('mouseup', handleMouseUp);
 
     // Cleanup
     return () => {
       canvas.off('mouse:wheel', handleMouseWheel);
-      canvas.off('mouse:down', handleMouseDown);
-      canvas.off('mouse:move', handleMouseMove);
-      canvas.off('mouse:up', handleMouseUp);
+      upperCanvasElement.removeEventListener('mousedown', handleMouseDown);
+      upperCanvasElement.removeEventListener('mousemove', handleMouseMove);
+      upperCanvasElement.removeEventListener('mouseup', handleMouseUp);
+      upperCanvasElement.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [canvas]);
 };
