@@ -1,33 +1,16 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 
-import { useCreateProject } from "@/features/projects/api/use-create-project";
+import { useCreateProjectModal } from "@/features/projects/store/use-create-project-modal";
 
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 export const Banner = () => {
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const mutation = useCreateProject();
+  const { onOpen } = useCreateProjectModal();
 
   const onClick = () => {
-    setLoading(true);
-    mutation.mutate(
-      {
-        name: "Untitled project",
-        json: "",
-        width: 2970,
-        height: 2100,
-      },
-      {
-        onSuccess: ({ data }) => {
-          router.push(`/editor/${data.id}`);
-        },
-      }
-    );
+    onOpen();
   };
 
   return (
@@ -43,17 +26,12 @@ export const Banner = () => {
           Turn inspiration into design in no time. Simply upload an image and let AI do the rest.
         </p>
         <Button
-          disabled={mutation.isPending}
           onClick={onClick}
           variant="secondary"
           className="w-[160px]"
         >
           Start creating
-          {loading ? (
-            <Loader2 className="size-4 ml-2 animate-spin" />
-          ) : (
-            <ArrowRight className="size-4 ml-2" />
-          )}
+          <ArrowRight className="size-4 ml-2" />
         </Button>
       </div>
     </div>

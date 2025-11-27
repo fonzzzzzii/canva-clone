@@ -10,7 +10,9 @@ export const JSON_KEYS = [
   "linkData",
   "editable",
   "extensionType",
-  "extension"
+  "extension",
+  "pageNumber",
+  "isPageWorkspace"
 ];
 
 export const filters = [
@@ -189,6 +191,7 @@ export interface EditorHookProps {
   defaultState?: string;
   defaultWidth?: number;
   defaultHeight?: number;
+  defaultPageCount?: number;
   clearSelectionCallback?: () => void;
   saveCallback?: (values: {
     json: string;

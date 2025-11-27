@@ -105,6 +105,7 @@ export const projects = pgTable("project", {
   json: text("json").notNull(),
   height: integer("height").notNull(),
   width: integer("width").notNull(),
+  pageCount: integer("pageCount").notNull().default(1),
   thumbnailUrl: text("thumbnailUrl"),
   isTemplate: boolean("isTemplate"),
   isPro: boolean("isPro"),

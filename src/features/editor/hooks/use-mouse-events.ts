@@ -32,8 +32,8 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
       // Positive delta = scroll down = zoom out
       zoom *= 0.999 ** delta;
 
-      // Clamp zoom between 0.2 (20%) and 1.0 (100%)
-      zoom = Math.min(Math.max(zoom, 0.2), 1.0);
+      // Clamp zoom between 0.01 (1%) and 1.0 (100%)
+      zoom = Math.min(Math.max(zoom, 0.01), 1.0);
 
       // Zoom to cursor position
       const point = new fabric.Point(event.offsetX, event.offsetY);

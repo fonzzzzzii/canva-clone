@@ -99,6 +99,7 @@ const app = new Hono()
           json: project.json,
           width: project.width,
           height: project.height,
+          pageCount: project.pageCount || 1,
           userId: auth.token.id,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -227,11 +228,12 @@ const app = new Hono()
         json: true,
         width: true,
         height: true,
+        pageCount: true,
       }),
     ),
     async (c) => {
       const auth = c.get("authUser");
-      const { name, json, height, width } = c.req.valid("json");
+      const { name, json, height, width, pageCount } = c.req.valid("json");
 
       if (!auth.token?.id) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -244,6 +246,7 @@ const app = new Hono()
           json,
           width,
           height,
+          pageCount: pageCount || 1,
           userId: auth.token.id,
           createdAt: new Date(),
           updatedAt: new Date(),

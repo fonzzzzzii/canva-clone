@@ -126,7 +126,13 @@ const buildEditor = ({
   const getWorkspace = () => {
     return canvas
     .getObjects()
-    .find((object) => object.name === "clip");
+    .find((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
+  };
+
+  const getWorkspaces = () => {
+    return canvas
+    .getObjects()
+    .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
   };
 
   const center = (object: fabric.Object) => {
@@ -170,7 +176,7 @@ const buildEditor = ({
       const zoomPoint = point || new fabric.Point(canvas.getCenter().left, canvas.getCenter().top);
       canvas.zoomToPoint(
         zoomPoint,
-        zoomRatio < 0.2 ? 0.2 : zoomRatio,
+        zoomRatio < 0.01 ? 0.01 : zoomRatio,
       );
     },
     changeSize: (value: { width: number; height: number }) => {
@@ -891,12 +897,14 @@ export const useEditor = ({
   defaultState,
   defaultHeight,
   defaultWidth,
+  defaultPageCount,
   clearSelectionCallback,
   saveCallback,
 }: EditorHookProps) => {
   const initialState = useRef(defaultState);
   const initialWidth = useRef(defaultWidth);
   const initialHeight = useRef(defaultHeight);
+  const initialPageCount = useRef(defaultPageCount || 1);
 
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -1093,25 +1101,93 @@ export const useEditor = ({
         cornerStrokeColor: "#3b82f6",
       });
 
-      const initialWorkspace = new fabric.Rect({
-        width: initialWidth.current,
-        height: initialHeight.current,
-        name: "clip",
-        fill: "white",
-        selectable: false,
-        hasControls: false,
-        shadow: new fabric.Shadow({
-          color: "rgba(0,0,0,0.8)",
-          blur: 5,
-        }),
-      });
-
       initialCanvas.setWidth(initialContainer.offsetWidth);
       initialCanvas.setHeight(initialContainer.offsetHeight);
 
-      initialCanvas.add(initialWorkspace);
-      initialCanvas.centerObject(initialWorkspace);
-      initialCanvas.clipPath = initialWorkspace;
+      const pageCount = initialPageCount.current;
+      const pageWidth = initialWidth.current || 2970;
+      const pageHeight = initialHeight.current || 2100;
+      const pageSpacing = 20; // Space between pages in a spread
+      const spreadSpacing = 100; // Space between spreads
+
+      if (pageCount === 1) {
+        // Single page - use existing logic
+        const initialWorkspace = new fabric.Rect({
+          width: pageWidth,
+          height: pageHeight,
+          name: "clip",
+          fill: "white",
+          selectable: false,
+          hasControls: false,
+          shadow: new fabric.Shadow({
+            color: "rgba(0,0,0,0.8)",
+            blur: 5,
+          }),
+        });
+
+        initialCanvas.add(initialWorkspace);
+        initialCanvas.centerObject(initialWorkspace);
+        initialCanvas.clipPath = initialWorkspace;
+      } else {
+        // Multi-page - create workspaces in book spreads
+        const workspaces: fabric.Rect[] = [];
+
+        for (let i = 0; i < pageCount; i++) {
+          const pageNumber = i + 1;
+          const spreadIndex = Math.floor(i / 2);
+          const isLeftPage = i % 2 === 0;
+
+          // Calculate x position for book spread layout
+          const spreadStartX = spreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
+          const xPosition = isLeftPage
+            ? spreadStartX
+            : spreadStartX + pageWidth + pageSpacing;
+
+          const workspace = new fabric.Rect({
+            width: pageWidth,
+            height: pageHeight,
+            name: `clip-page-${pageNumber}`,
+            fill: "white",
+            selectable: false,
+            hasControls: false,
+            left: xPosition,
+            top: 0,
+            shadow: new fabric.Shadow({
+              color: "rgba(0,0,0,0.8)",
+              blur: 5,
+            }),
+          });
+
+          // @ts-ignore - Add custom property to identify page workspaces
+          workspace.pageNumber = pageNumber;
+          // @ts-ignore
+          workspace.isPageWorkspace = true;
+
+          workspaces.push(workspace);
+          initialCanvas.add(workspace);
+        }
+
+        // Center all workspaces as a group
+        if (workspaces.length > 0) {
+          const firstWorkspace = workspaces[0];
+          const lastWorkspace = workspaces[workspaces.length - 1];
+
+          const totalWidth = (lastWorkspace.left || 0) + pageWidth - (firstWorkspace.left || 0);
+          const offsetX = (initialContainer.offsetWidth - totalWidth) / 2;
+          const offsetY = (initialContainer.offsetHeight - pageHeight) / 2;
+
+          workspaces.forEach((workspace) => {
+            workspace.set({
+              left: (workspace.left || 0) + offsetX,
+              top: offsetY,
+            });
+            workspace.setCoords();
+          });
+        }
+
+        // For multi-page, don't set a global clipPath - each workspace clips itself
+        initialCanvas.clipPath = undefined;
+      }
 
       setCanvas(initialCanvas);
       setContainer(initialContainer);

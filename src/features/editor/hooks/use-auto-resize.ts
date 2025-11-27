@@ -19,44 +19,98 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
     const center = canvas.getCenter();
 
     const zoomRatio = 0.85;
-    const localWorkspace = canvas
+
+    // Find all workspace objects (single or multi-page)
+    const workspaces = canvas
       .getObjects()
-      .find((object) => object.name === "clip");
+      .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
 
-    // @ts-ignore
-    const scale = fabric.util.findScaleToFit(localWorkspace, {
-      width: width,
-      height: height,
-    });
+    if (workspaces.length === 0) return;
 
-    const zoom = zoomRatio * scale;
+    // For single page, use existing logic
+    if (workspaces.length === 1) {
+      const localWorkspace = workspaces[0];
 
-    canvas.setViewportTransform(fabric.iMatrix.concat());
-    canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom);
+      // @ts-ignore
+      const scale = fabric.util.findScaleToFit(localWorkspace, {
+        width: width,
+        height: height,
+      });
 
-    if (!localWorkspace) return;
+      const zoom = zoomRatio * scale;
 
-    const workspaceCenter = localWorkspace.getCenterPoint();
-    const viewportTransform = canvas.viewportTransform;
+      canvas.setViewportTransform(fabric.iMatrix.concat());
+      canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom);
 
-    if (
-      canvas.width === undefined ||
-      canvas.height === undefined ||
-      !viewportTransform
-    ) {
-      return;
-    }
+      const workspaceCenter = localWorkspace.getCenterPoint();
+      const viewportTransform = canvas.viewportTransform;
 
-    viewportTransform[4] = canvas.width / 2 - workspaceCenter.x * viewportTransform[0];
+      if (
+        canvas.width === undefined ||
+        canvas.height === undefined ||
+        !viewportTransform
+      ) {
+        return;
+      }
 
-    viewportTransform[5] = canvas.height / 2 - workspaceCenter.y * viewportTransform[3];
+      viewportTransform[4] = canvas.width / 2 - workspaceCenter.x * viewportTransform[0];
+      viewportTransform[5] = canvas.height / 2 - workspaceCenter.y * viewportTransform[3];
 
-    canvas.setViewportTransform(viewportTransform);
+      canvas.setViewportTransform(viewportTransform);
 
-    localWorkspace.clone((cloned: fabric.Rect) => {
-      canvas.clipPath = cloned;
+      localWorkspace.clone((cloned: fabric.Rect) => {
+        canvas.clipPath = cloned;
+        canvas.requestRenderAll();
+      });
+    } else {
+      // For multi-page, calculate bounding box of all workspaces
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      workspaces.forEach((workspace) => {
+        const bounds = workspace.getBoundingRect();
+        minX = Math.min(minX, bounds.left);
+        minY = Math.min(minY, bounds.top);
+        maxX = Math.max(maxX, bounds.left + bounds.width);
+        maxY = Math.max(maxY, bounds.top + bounds.height);
+      });
+
+      const boundingBoxWidth = maxX - minX;
+      const boundingBoxHeight = maxY - minY;
+      const centerX = minX + boundingBoxWidth / 2;
+      const centerY = minY + boundingBoxHeight / 2;
+
+      // Calculate scale to fit all workspaces
+      const scaleX = width / boundingBoxWidth;
+      const scaleY = height / boundingBoxHeight;
+      const scale = Math.min(scaleX, scaleY);
+      const zoom = zoomRatio * scale;
+
+      canvas.setViewportTransform(fabric.iMatrix.concat());
+      canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom);
+
+      const viewportTransform = canvas.viewportTransform;
+
+      if (
+        canvas.width === undefined ||
+        canvas.height === undefined ||
+        !viewportTransform
+      ) {
+        return;
+      }
+
+      // Center the view on all workspaces
+      viewportTransform[4] = canvas.width / 2 - centerX * viewportTransform[0];
+      viewportTransform[5] = canvas.height / 2 - centerY * viewportTransform[3];
+
+      canvas.setViewportTransform(viewportTransform);
+
+      // For multi-page, don't set a global clipPath
+      canvas.clipPath = undefined;
       canvas.requestRenderAll();
-    });
+    }
   }, [canvas, container]);
 
   useEffect(() => {
