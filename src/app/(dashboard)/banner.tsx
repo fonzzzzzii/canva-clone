@@ -19,8 +19,8 @@ export const Banner = () => {
       {
         name: "Untitled project",
         json: "",
-        width: 900,
-        height: 1200,
+        width: 2970,
+        height: 2100,
       },
       {
         onSuccess: ({ data }) => {
