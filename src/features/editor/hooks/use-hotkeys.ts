@@ -13,6 +13,7 @@ interface UseHotkeysProps {
   zoomIn?: () => void;
   zoomOut?: () => void;
   autoZoom?: () => void;
+  gridSize?: number;
 }
 
 export const useHotkeys = ({
@@ -27,6 +28,7 @@ export const useHotkeys = ({
   zoomIn,
   zoomOut,
   autoZoom,
+  gridSize = 10,
 }: UseHotkeysProps) => {
   useEvent("keydown", (event) => {
     const isCtrlKey = event.ctrlKey || event.metaKey;
@@ -111,6 +113,41 @@ export const useHotkeys = ({
     if (isCtrlKey && event.key === "0") {
       event.preventDefault();
       autoZoom?.();
+    }
+
+    // Arrow keys: Move selected objects by one grid unit
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+      if (!canvas) return;
+
+      const activeObjects = canvas.getActiveObjects();
+      if (activeObjects.length === 0) return;
+
+      event.preventDefault();
+
+      activeObjects.forEach((obj) => {
+        const currentLeft = obj.left || 0;
+        const currentTop = obj.top || 0;
+
+        switch (event.key) {
+          case "ArrowUp":
+            obj.set({ top: currentTop - gridSize });
+            break;
+          case "ArrowDown":
+            obj.set({ top: currentTop + gridSize });
+            break;
+          case "ArrowLeft":
+            obj.set({ left: currentLeft - gridSize });
+            break;
+          case "ArrowRight":
+            obj.set({ left: currentLeft + gridSize });
+            break;
+        }
+
+        obj.setCoords();
+      });
+
+      canvas.requestRenderAll();
+      save();
     }
   });
 };

@@ -776,6 +776,7 @@ export const useEditor = ({
     zoomIn,
     zoomOut,
     autoZoom,
+    gridSize: snappingOptions.snapGridSize,
   });
 
   useLoadState({
