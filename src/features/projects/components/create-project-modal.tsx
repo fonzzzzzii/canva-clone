@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 
 type LayoutType = "manual" | "auto" | null;
 
-type SortBy = "date-asc" | "date-desc" | "title";
+type SortBy = "date-asc" | "date-desc" | "title" | "custom";
 
 interface ImageMetadata {
   url: string;
@@ -84,38 +84,41 @@ const SortableImageItem = ({ image, onRemove }: SortableImageItemProps) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="relative group bg-white rounded-lg border border-gray-200 overflow-hidden"
+      className="relative group"
     >
-      {/* Drag Handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 left-2 z-10 bg-white/90 rounded p-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <GripVertical className="size-4 text-gray-600" />
-      </div>
-
-      {/* Remove Button */}
+      {/* Remove Button - positioned outside to avoid clipping */}
       <button
         onClick={() => onRemove(image.id)}
-        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-md"
         type="button"
       >
         <X className="size-3" />
       </button>
 
-      {/* Image */}
-      <img
-        src={image.url}
-        alt={image.originalName}
-        className="w-full h-32 object-cover"
-      />
+      {/* Card content */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute top-2 left-2 z-10 bg-white/90 rounded p-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <GripVertical className="size-4 text-gray-600" />
+        </div>
 
-      {/* Filename */}
-      <div className="p-2 bg-gray-50">
-        <p className="text-xs text-gray-600 truncate" title={image.originalName}>
-          {image.originalName}
-        </p>
+        {/* Image */}
+        <img
+          src={image.url}
+          alt={image.originalName}
+          className="w-full h-32 object-cover"
+        />
+
+        {/* Filename */}
+        <div className="p-2 bg-gray-50">
+          <p className="text-xs text-gray-600 truncate" title={image.originalName}>
+            {image.originalName}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -153,6 +156,8 @@ export const CreateProjectModal = () => {
         const newIndex = items.findIndex((item) => item.id === over.id);
         return arrayMove(items, oldIndex, newIndex);
       });
+      // Switch to custom sort after manual reordering
+      setSortBy("custom");
     }
   };
 
@@ -240,19 +245,24 @@ export const CreateProjectModal = () => {
     setUploadedImages((prev) => prev.filter((img) => img.id !== id));
   };
 
-  const getSortedImages = (): ImageMetadata[] => {
-    const sorted = [...uploadedImages];
-    switch (sortBy) {
-      case "date-asc":
-        return sorted.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime());
-      case "date-desc":
-        return sorted.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
-      case "title":
-        return sorted.sort((a, b) => a.originalName.localeCompare(b.originalName));
-      default:
-        return sorted;
-    }
-  };
+  // Apply sorting when sort option changes
+  useEffect(() => {
+    if (sortBy === "custom") return; // Don't sort if custom order
+
+    setUploadedImages((items) => {
+      const sorted = [...items];
+      switch (sortBy) {
+        case "date-asc":
+          return sorted.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime());
+        case "date-desc":
+          return sorted.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+        case "title":
+          return sorted.sort((a, b) => a.originalName.localeCompare(b.originalName));
+        default:
+          return sorted;
+      }
+    });
+  }, [sortBy]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -302,6 +312,9 @@ export const CreateProjectModal = () => {
           <div className="space-y-4">
             <UploadDropzone
               endpoint="imageUploader"
+              config={{
+                mode: "auto",
+              }}
               onClientUploadComplete={(res) => {
                 console.log("Upload complete:", res);
                 const newImages: ImageMetadata[] = res.map((file) => ({
@@ -342,11 +355,11 @@ export const CreateProjectModal = () => {
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
-                    items={getSortedImages().map((img) => img.id)}
+                    items={uploadedImages.map((img) => img.id)}
                     strategy={rectSortingStrategy}
                   >
                     <div className="grid grid-cols-3 gap-4">
-                      {getSortedImages().map((image) => (
+                      {uploadedImages.map((image) => (
                         <SortableImageItem
                           key={image.id}
                           image={image}
