@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
 
 interface SettingsSidebarProps {
   editor: Editor | undefined;
@@ -107,6 +110,112 @@ export const SettingsSidebar = ({
             value={background as string} // We dont support gradients or patterns
             onChange={changeBackground}
           />
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="p-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Snapping & Grid</h3>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="snap-grid" className="text-sm font-normal">
+                  Snap to Grid
+                </Label>
+                <Switch
+                  id="snap-grid"
+                  checked={editor?.getSnappingOptions().snapToGrid ?? true}
+                  onCheckedChange={editor?.toggleSnapToGrid}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="snap-objects" className="text-sm font-normal">
+                  Snap to Objects
+                </Label>
+                <Switch
+                  id="snap-objects"
+                  checked={editor?.getSnappingOptions().snapToObjects ?? true}
+                  onCheckedChange={editor?.toggleSnapToObjects}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="snap-canvas" className="text-sm font-normal">
+                  Snap to Canvas
+                </Label>
+                <Switch
+                  id="snap-canvas"
+                  checked={editor?.getSnappingOptions().snapToCanvas ?? true}
+                  onCheckedChange={editor?.toggleSnapToCanvas}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="snap-rotation" className="text-sm font-normal">
+                  Snap Rotation
+                </Label>
+                <Switch
+                  id="snap-rotation"
+                  checked={editor?.getSnappingOptions().snapRotation ?? true}
+                  onCheckedChange={editor?.toggleSnapRotation}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-grid" className="text-sm font-normal">
+                  Show Grid
+                </Label>
+                <Switch
+                  id="show-grid"
+                  checked={editor?.getSnappingOptions().showGrid ?? false}
+                  onCheckedChange={editor?.toggleGrid}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="snap-grid-size" className="text-sm font-normal">
+                    Snap Grid
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {editor?.getSnappingOptions().snapGridSize ?? 10}px
+                  </span>
+                </div>
+                <Slider
+                  id="snap-grid-size"
+                  min={1}
+                  max={50}
+                  step={1}
+                  value={[editor?.getSnappingOptions().snapGridSize ?? 10]}
+                  onValueChange={(value) => editor?.setSnapGridSize(value[0])}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="visual-grid-size" className="text-sm font-normal">
+                    Visual Grid
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {editor?.getSnappingOptions().visualGridSize ?? 20}px
+                  </span>
+                </div>
+                <Slider
+                  id="visual-grid-size"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={[editor?.getSnappingOptions().visualGridSize ?? 20]}
+                  onValueChange={(value) => editor?.setVisualGridSize(value[0])}
+                  className="w-full"
+                  disabled={!editor?.getSnappingOptions().showGrid}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </ScrollArea>
       <ToolSidebarClose onClick={onClose} />

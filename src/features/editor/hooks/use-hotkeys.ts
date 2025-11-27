@@ -8,11 +8,23 @@ interface UseHotkeysProps {
   save: (skip?: boolean) => void;
   copy: () => void;
   paste: () => void;
+  toggleGrid?: () => void;
+  toggleSnapping?: () => void;
 }
 
-export const useHotkeys = ({ canvas, undo, redo, save, copy, paste }: UseHotkeysProps) => {
+export const useHotkeys = ({
+  canvas,
+  undo,
+  redo,
+  save,
+  copy,
+  paste,
+  toggleGrid,
+  toggleSnapping,
+}: UseHotkeysProps) => {
   useEvent("keydown", (event) => {
     const isCtrlKey = event.ctrlKey || event.metaKey;
+    const isShiftKey = event.shiftKey;
     const isBackspace = event.key === "Backspace";
     const isInput = ["INPUT", "TEXTAREA"].includes((event.target as HTMLElement).tagName);
 
@@ -63,6 +75,18 @@ export const useHotkeys = ({ canvas, undo, redo, save, copy, paste }: UseHotkeys
 
       canvas?.setActiveObject(new fabric.ActiveSelection(allObjects, { canvas }));
       canvas?.renderAll();
+    }
+
+    // Ctrl+Shift+G: Toggle grid visibility
+    if (isCtrlKey && isShiftKey && event.key === "G") {
+      event.preventDefault();
+      toggleGrid?.();
+    }
+
+    // Ctrl+': Toggle snapping on/off (toggle all snapping types)
+    if (isCtrlKey && event.key === "'") {
+      event.preventDefault();
+      toggleSnapping?.();
     }
   });
 };

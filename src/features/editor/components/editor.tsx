@@ -30,6 +30,8 @@ import { AiSidebar } from "@/features/editor/components/ai-sidebar";
 import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
+import { SnapLines } from "@/features/editor/components/snap-lines";
+import { GridOverlay } from "@/features/editor/components/grid-overlay";
 
 interface EditorProps {
   initialData: ResponseType["data"];
@@ -59,7 +61,7 @@ export const Editor = ({ initialData }: EditorProps) => {
     }
   }, [activeTool]);
 
-  const { init, editor } = useEditor({
+  const { init, editor, snapLines, snappingOptions, container } = useEditor({
     defaultState: initialData.json,
     defaultWidth: initialData.width,
     defaultHeight: initialData.height,
@@ -192,8 +194,32 @@ export const Editor = ({ initialData }: EditorProps) => {
             onChangeActiveTool={onChangeActiveTool}
             key={JSON.stringify(editor?.canvas.getActiveObject())}
           />
-          <div className="flex-1 h-[calc(100%-124px)] bg-muted" ref={containerRef}>
+          <div className="flex-1 h-[calc(100%-124px)] bg-muted relative" ref={containerRef}>
             <canvas ref={canvasRef} />
+            {container && editor && (
+              <>
+                {(() => {
+                  const workspace = editor.getWorkspace();
+                  const workspaceBounds = workspace?.getBoundingRect();
+
+                  return (
+                    <>
+                      <GridOverlay
+                        show={snappingOptions.showGrid}
+                        visualGridSize={snappingOptions.visualGridSize}
+                        containerWidth={container.offsetWidth}
+                        containerHeight={container.offsetHeight}
+                        workspaceLeft={workspaceBounds?.left || 0}
+                        workspaceTop={workspaceBounds?.top || 0}
+                        workspaceWidth={workspace?.width as number || 0}
+                        workspaceHeight={workspace?.height as number || 0}
+                      />
+                      <SnapLines lines={snapLines} containerRef={containerRef} />
+                    </>
+                  );
+                })()}
+              </>
+            )}
           </div>
           <Footer editor={editor} />
         </main>

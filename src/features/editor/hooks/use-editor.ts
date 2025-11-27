@@ -1,15 +1,15 @@
 import { fabric } from "fabric";
 import { useCallback, useState, useMemo, useRef } from "react";
 
-import { 
-  Editor, 
+import {
+  Editor,
   FILL_COLOR,
   STROKE_WIDTH,
   STROKE_COLOR,
   CIRCLE_OPTIONS,
   DIAMOND_OPTIONS,
   TRIANGLE_OPTIONS,
-  BuildEditorProps, 
+  BuildEditorProps,
   RECTANGLE_OPTIONS,
   EditorHookProps,
   STROKE_DASH_ARRAY,
@@ -18,11 +18,13 @@ import {
   FONT_WEIGHT,
   FONT_SIZE,
   JSON_KEYS,
+  SnappingOptions,
+  SnapLine,
 } from "@/features/editor/types";
 import { useHistory } from "@/features/editor/hooks/use-history";
-import { 
-  createFilter, 
-  downloadFile, 
+import {
+  createFilter,
+  downloadFile,
   isTextType,
   transformText
 } from "@/features/editor/utils";
@@ -32,6 +34,7 @@ import { useAutoResize } from "@/features/editor/hooks/use-auto-resize";
 import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
 import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
+import { useSnapping } from "@/features/editor/hooks/use-snapping";
 
 const buildEditor = ({
   save,
@@ -54,6 +57,8 @@ const buildEditor = ({
   selectedObjects,
   strokeDashArray,
   setStrokeDashArray,
+  snappingOptions,
+  setSnappingOptions,
 }: BuildEditorProps): Editor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
@@ -607,6 +612,49 @@ const buildEditor = ({
       return value;
     },
     selectedObjects,
+    toggleSnapToGrid: () => {
+      setSnappingOptions({
+        ...snappingOptions,
+        snapToGrid: !snappingOptions.snapToGrid,
+      });
+    },
+    toggleSnapToObjects: () => {
+      setSnappingOptions({
+        ...snappingOptions,
+        snapToObjects: !snappingOptions.snapToObjects,
+      });
+    },
+    toggleSnapToCanvas: () => {
+      setSnappingOptions({
+        ...snappingOptions,
+        snapToCanvas: !snappingOptions.snapToCanvas,
+      });
+    },
+    toggleSnapRotation: () => {
+      setSnappingOptions({
+        ...snappingOptions,
+        snapRotation: !snappingOptions.snapRotation,
+      });
+    },
+    toggleGrid: () => {
+      setSnappingOptions({
+        ...snappingOptions,
+        showGrid: !snappingOptions.showGrid,
+      });
+    },
+    setSnapGridSize: (size: number) => {
+      setSnappingOptions({
+        ...snappingOptions,
+        snapGridSize: size,
+      });
+    },
+    setVisualGridSize: (size: number) => {
+      setSnappingOptions({
+        ...snappingOptions,
+        visualGridSize: size,
+      });
+    },
+    getSnappingOptions: () => snappingOptions,
   };
 };
 
@@ -630,6 +678,19 @@ export const useEditor = ({
   const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
   const [strokeWidth, setStrokeWidth] = useState(STROKE_WIDTH);
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
+
+  const [snappingOptions, setSnappingOptions] = useState<SnappingOptions>({
+    snapToGrid: true,
+    snapToObjects: true,
+    snapToCanvas: true,
+    snapRotation: true,
+    snapGridSize: 10,
+    visualGridSize: 20,
+    snapThreshold: 10,
+    showGrid: false,
+  });
+
+  const [snapLines, setSnapLines] = useState<SnapLine[]>([]);
 
   useWindowEvents();
 
@@ -660,6 +721,26 @@ export const useEditor = ({
     clearSelectionCallback,
   });
 
+  const toggleGrid = useCallback(() => {
+    setSnappingOptions((prev) => ({
+      ...prev,
+      showGrid: !prev.showGrid,
+    }));
+  }, []);
+
+  const toggleSnapping = useCallback(() => {
+    setSnappingOptions((prev) => {
+      const allEnabled = prev.snapToGrid && prev.snapToObjects && prev.snapToCanvas && prev.snapRotation;
+      return {
+        ...prev,
+        snapToGrid: !allEnabled,
+        snapToObjects: !allEnabled,
+        snapToCanvas: !allEnabled,
+        snapRotation: !allEnabled,
+      };
+    });
+  }, []);
+
   useHotkeys({
     undo,
     redo,
@@ -667,6 +748,8 @@ export const useEditor = ({
     paste,
     save,
     canvas,
+    toggleGrid,
+    toggleSnapping,
   });
 
   useLoadState({
@@ -675,6 +758,12 @@ export const useEditor = ({
     initialState,
     canvasHistory,
     setHistoryIndex,
+  });
+
+  useSnapping({
+    canvas,
+    snappingOptions,
+    onSnapLinesChange: setSnapLines,
   });
 
   const editor = useMemo(() => {
@@ -700,11 +789,13 @@ export const useEditor = ({
         setStrokeDashArray,
         fontFamily,
         setFontFamily,
+        snappingOptions,
+        setSnappingOptions,
       });
     }
 
     return undefined;
-  }, 
+  },
   [
     canRedo,
     canUndo,
@@ -721,6 +812,7 @@ export const useEditor = ({
     selectedObjects,
     strokeDashArray,
     fontFamily,
+    snappingOptions,
   ]);
 
   const init = useCallback(
@@ -776,5 +868,5 @@ export const useEditor = ({
     ]
   );
 
-  return { init, editor };
+  return { init, editor, snapLines, snappingOptions, container };
 };

@@ -168,6 +168,23 @@ export const TEXT_OPTIONS = {
   fontFamily: FONT_FAMILY,
 };
 
+export interface SnappingOptions {
+  snapToGrid: boolean;
+  snapToObjects: boolean;
+  snapToCanvas: boolean;
+  snapRotation: boolean;
+  snapGridSize: number;
+  visualGridSize: number;
+  snapThreshold: number;
+  showGrid: boolean;
+}
+
+export interface SnapLine {
+  x?: number;
+  y?: number;
+  orientation: "horizontal" | "vertical";
+}
+
 export interface EditorHookProps {
   defaultState?: string;
   defaultWidth?: number;
@@ -201,6 +218,8 @@ export type BuildEditorProps = {
   setStrokeColor: (value: string) => void;
   setStrokeWidth: (value: number) => void;
   setFontFamily: (value: string) => void;
+  snappingOptions: SnappingOptions;
+  setSnappingOptions: (options: Partial<SnappingOptions>) => void;
 };
 
 export interface Editor {
@@ -261,4 +280,12 @@ export interface Editor {
   getActiveStrokeWidth: () => number;
   getActiveStrokeDashArray: () => number[];
   selectedObjects: fabric.Object[];
+  toggleSnapToGrid: () => void;
+  toggleSnapToObjects: () => void;
+  toggleSnapToCanvas: () => void;
+  toggleSnapRotation: () => void;
+  toggleGrid: () => void;
+  setSnapGridSize: (size: number) => void;
+  setVisualGridSize: (size: number) => void;
+  getSnappingOptions: () => SnappingOptions;
 };

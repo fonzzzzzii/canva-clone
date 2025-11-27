@@ -141,3 +141,129 @@ export const createFilter = (value: string) => {
 
   return effect;
 };
+
+// Snapping utilities
+export function roundToGrid(value: number, gridSize: number): number {
+  return Math.round(value / gridSize) * gridSize;
+}
+
+export function calculateGridSnap(
+  position: { left: number; top: number },
+  gridSize: number
+): { left: number; top: number } {
+  return {
+    left: roundToGrid(position.left, gridSize),
+    top: roundToGrid(position.top, gridSize),
+  };
+}
+
+export function findAlignmentLines(
+  canvas: fabric.Canvas,
+  activeObject: fabric.Object,
+  threshold: number
+): { vertical: number[]; horizontal: number[] } {
+  const vertical: number[] = [];
+  const horizontal: number[] = [];
+
+  const activeObjectBounds = activeObject.getBoundingRect();
+  const activeObjectCenter = {
+    x: activeObjectBounds.left + activeObjectBounds.width / 2,
+    y: activeObjectBounds.top + activeObjectBounds.height / 2,
+  };
+
+  canvas.getObjects().forEach((obj) => {
+    if (obj === activeObject || obj.name === "clip") return;
+
+    const objBounds = obj.getBoundingRect();
+    const objCenter = {
+      x: objBounds.left + objBounds.width / 2,
+      y: objBounds.top + objBounds.height / 2,
+    };
+
+    // Check vertical alignment
+    // Center to center
+    if (Math.abs(activeObjectCenter.x - objCenter.x) < threshold) {
+      vertical.push(objCenter.x);
+    }
+    // Left to left
+    if (Math.abs(activeObjectBounds.left - objBounds.left) < threshold) {
+      vertical.push(objBounds.left);
+    }
+    // Right to right
+    if (Math.abs(activeObjectBounds.left + activeObjectBounds.width - (objBounds.left + objBounds.width)) < threshold) {
+      vertical.push(objBounds.left + objBounds.width);
+    }
+
+    // Check horizontal alignment
+    // Center to center
+    if (Math.abs(activeObjectCenter.y - objCenter.y) < threshold) {
+      horizontal.push(objCenter.y);
+    }
+    // Top to top
+    if (Math.abs(activeObjectBounds.top - objBounds.top) < threshold) {
+      horizontal.push(objBounds.top);
+    }
+    // Bottom to bottom
+    if (Math.abs(activeObjectBounds.top + activeObjectBounds.height - (objBounds.top + objBounds.height)) < threshold) {
+      horizontal.push(objBounds.top + objBounds.height);
+    }
+  });
+
+  return { vertical, horizontal };
+}
+
+export function calculateCanvasSnap(
+  object: fabric.Object,
+  workspace: fabric.Object,
+  threshold: number
+): { snapToCenter: { x: boolean; y: boolean }; lines: { vertical: number[]; horizontal: number[] } } {
+  const workspaceBounds = workspace.getBoundingRect();
+  const workspaceCenter = {
+    x: workspaceBounds.left + workspaceBounds.width / 2,
+    y: workspaceBounds.top + workspaceBounds.height / 2,
+  };
+
+  const objectBounds = object.getBoundingRect();
+  const objectCenter = {
+    x: objectBounds.left + objectBounds.width / 2,
+    y: objectBounds.top + objectBounds.height / 2,
+  };
+
+  const vertical: number[] = [];
+  const horizontal: number[] = [];
+  const snapToCenter = { x: false, y: false };
+
+  // Check canvas center alignment
+  if (Math.abs(objectCenter.x - workspaceCenter.x) < threshold) {
+    vertical.push(workspaceCenter.x);
+    snapToCenter.x = true;
+  }
+
+  if (Math.abs(objectCenter.y - workspaceCenter.y) < threshold) {
+    horizontal.push(workspaceCenter.y);
+    snapToCenter.y = true;
+  }
+
+  // Check canvas edges
+  if (Math.abs(objectBounds.left - workspaceBounds.left) < threshold) {
+    vertical.push(workspaceBounds.left);
+  }
+
+  if (Math.abs(objectBounds.left + objectBounds.width - (workspaceBounds.left + workspaceBounds.width)) < threshold) {
+    vertical.push(workspaceBounds.left + workspaceBounds.width);
+  }
+
+  if (Math.abs(objectBounds.top - workspaceBounds.top) < threshold) {
+    horizontal.push(workspaceBounds.top);
+  }
+
+  if (Math.abs(objectBounds.top + objectBounds.height - (workspaceBounds.top + workspaceBounds.height)) < threshold) {
+    horizontal.push(workspaceBounds.top + workspaceBounds.height);
+  }
+
+  return { snapToCenter, lines: { vertical, horizontal } };
+}
+
+export function roundRotationAngle(angle: number, snapDegrees: number = 15): number {
+  return Math.round(angle / snapDegrees) * snapDegrees;
+}
