@@ -288,4 +288,12 @@ export interface Editor {
   setSnapGridSize: (size: number) => void;
   setVisualGridSize: (size: number) => void;
   getSnappingOptions: () => SnappingOptions;
+  alignLeft: () => void;
+  alignCenterHorizontal: () => void;
+  alignRight: () => void;
+  alignTop: () => void;
+  alignCenterVertical: () => void;
+  alignBottom: () => void;
+  distributeHorizontal: () => void;
+  distributeVertical: () => void;
 };

@@ -9,16 +9,24 @@ import {
 import { TbColorFilter } from "react-icons/tb";
 import { BsBorderWidth } from "react-icons/bs";
 import { RxTransparencyGrid } from "react-icons/rx";
-import { 
-  ArrowUp, 
-  ArrowDown, 
-  ChevronDown, 
-  AlignLeft, 
-  AlignCenter, 
+import {
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  AlignLeft,
+  AlignCenter,
   AlignRight,
   Trash,
   SquareSplitHorizontal,
-  Copy
+  Copy,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
+  AlignVerticalSpaceBetween
 } from "lucide-react";
 
 import { isTextType } from "@/features/editor/utils";
@@ -448,6 +456,104 @@ export const Toolbar = ({
           </Button>
         </Hint>
       </div>
+      {editor?.selectedObjects.length > 1 && (
+        <>
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align left" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignLeft()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignStartHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align center horizontal" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignCenterHorizontal()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignCenterHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align right" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignRight()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignEndHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align top" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignTop()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignStartVertical className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align middle vertical" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignCenterVertical()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignCenterVertical className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align bottom" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignBottom()}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignEndVertical className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          {editor?.selectedObjects.length > 2 && (
+            <>
+              <div className="w-px h-6 bg-gray-300 mx-1" />
+              <div className="flex items-center h-full justify-center">
+                <Hint label="Distribute horizontal" side="bottom" sideOffset={5}>
+                  <Button
+                    onClick={() => editor?.distributeHorizontal()}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <AlignHorizontalSpaceBetween className="size-4" />
+                  </Button>
+                </Hint>
+              </div>
+              <div className="flex items-center h-full justify-center">
+                <Hint label="Distribute vertical" side="bottom" sideOffset={5}>
+                  <Button
+                    onClick={() => editor?.distributeVertical()}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <AlignVerticalSpaceBetween className="size-4" />
+                  </Button>
+                </Hint>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 };

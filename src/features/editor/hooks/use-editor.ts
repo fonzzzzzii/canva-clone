@@ -656,6 +656,234 @@ const buildEditor = ({
       });
     },
     getSnappingOptions: () => snappingOptions,
+    alignLeft: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find leftmost edge
+      let leftmost = Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        if (bounds.left < leftmost) leftmost = bounds.left;
+      });
+
+      // Align all objects to leftmost edge
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const offset = leftmost - bounds.left;
+        obj.set({ left: (obj.left || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    alignCenterHorizontal: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find center of selection
+      let leftmost = Infinity;
+      let rightmost = -Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        if (bounds.left < leftmost) leftmost = bounds.left;
+        if (bounds.left + bounds.width > rightmost) rightmost = bounds.left + bounds.width;
+      });
+      const centerX = (leftmost + rightmost) / 2;
+
+      // Align all objects to center
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const objCenterX = bounds.left + bounds.width / 2;
+        const offset = centerX - objCenterX;
+        obj.set({ left: (obj.left || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    alignRight: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find rightmost edge
+      let rightmost = -Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const right = bounds.left + bounds.width;
+        if (right > rightmost) rightmost = right;
+      });
+
+      // Align all objects to rightmost edge
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const right = bounds.left + bounds.width;
+        const offset = rightmost - right;
+        obj.set({ left: (obj.left || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    alignTop: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find topmost edge
+      let topmost = Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        if (bounds.top < topmost) topmost = bounds.top;
+      });
+
+      // Align all objects to topmost edge
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const offset = topmost - bounds.top;
+        obj.set({ top: (obj.top || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    alignCenterVertical: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find center of selection
+      let topmost = Infinity;
+      let bottommost = -Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        if (bounds.top < topmost) topmost = bounds.top;
+        if (bounds.top + bounds.height > bottommost) bottommost = bounds.top + bounds.height;
+      });
+      const centerY = (topmost + bottommost) / 2;
+
+      // Align all objects to center
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const objCenterY = bounds.top + bounds.height / 2;
+        const offset = centerY - objCenterY;
+        obj.set({ top: (obj.top || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    alignBottom: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 2) return;
+
+      // Find bottommost edge
+      let bottommost = -Infinity;
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const bottom = bounds.top + bounds.height;
+        if (bottom > bottommost) bottommost = bottom;
+      });
+
+      // Align all objects to bottommost edge
+      objects.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        const bottom = bounds.top + bounds.height;
+        const offset = bottommost - bottom;
+        obj.set({ top: (obj.top || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    distributeHorizontal: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 3) return;
+
+      // Sort objects by left position
+      const sorted = [...objects].sort((a, b) => {
+        const boundsA = a.getBoundingRect();
+        const boundsB = b.getBoundingRect();
+        return boundsA.left - boundsB.left;
+      });
+
+      // Calculate total width of all objects
+      let totalObjectsWidth = 0;
+      sorted.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        totalObjectsWidth += bounds.width;
+      });
+
+      // Calculate selection bounds
+      const firstBounds = sorted[0].getBoundingRect();
+      const lastBounds = sorted[sorted.length - 1].getBoundingRect();
+      const selectionWidth = (lastBounds.left + lastBounds.width) - firstBounds.left;
+
+      // Calculate spacing
+      const totalSpace = selectionWidth - totalObjectsWidth;
+      const spacing = totalSpace / (sorted.length - 1);
+
+      // Position objects
+      let currentLeft = firstBounds.left;
+      sorted.forEach((obj, index) => {
+        if (index === 0 || index === sorted.length - 1) return; // Skip first and last
+
+        const bounds = obj.getBoundingRect();
+        currentLeft += sorted[index - 1].getBoundingRect().width + spacing;
+        const offset = currentLeft - bounds.left;
+        obj.set({ left: (obj.left || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
+    distributeVertical: () => {
+      const objects = canvas.getActiveObjects().filter((obj) => obj.name !== "clip");
+      if (objects.length < 3) return;
+
+      // Sort objects by top position
+      const sorted = [...objects].sort((a, b) => {
+        const boundsA = a.getBoundingRect();
+        const boundsB = b.getBoundingRect();
+        return boundsA.top - boundsB.top;
+      });
+
+      // Calculate total height of all objects
+      let totalObjectsHeight = 0;
+      sorted.forEach((obj) => {
+        const bounds = obj.getBoundingRect();
+        totalObjectsHeight += bounds.height;
+      });
+
+      // Calculate selection bounds
+      const firstBounds = sorted[0].getBoundingRect();
+      const lastBounds = sorted[sorted.length - 1].getBoundingRect();
+      const selectionHeight = (lastBounds.top + lastBounds.height) - firstBounds.top;
+
+      // Calculate spacing
+      const totalSpace = selectionHeight - totalObjectsHeight;
+      const spacing = totalSpace / (sorted.length - 1);
+
+      // Position objects
+      let currentTop = firstBounds.top;
+      sorted.forEach((obj, index) => {
+        if (index === 0 || index === sorted.length - 1) return; // Skip first and last
+
+        const bounds = obj.getBoundingRect();
+        currentTop += sorted[index - 1].getBoundingRect().height + spacing;
+        const offset = currentTop - bounds.top;
+        obj.set({ top: (obj.top || 0) + offset });
+        obj.setCoords();
+      });
+
+      canvas.renderAll();
+      save();
+    },
   };
 };
 
