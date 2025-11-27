@@ -35,7 +35,7 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
           key={`${x}-${y}`}
           cx={workspaceLeft + x}
           cy={workspaceTop + y}
-          r="1.5"
+          r="0.8"
           fill="#94a3b8"
           opacity="0.4"
         />

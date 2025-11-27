@@ -764,6 +764,7 @@ export const useEditor = ({
     canvas,
     snappingOptions,
     onSnapLinesChange: setSnapLines,
+    save,
   });
 
   const editor = useMemo(() => {

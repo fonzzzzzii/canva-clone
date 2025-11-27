@@ -18,7 +18,7 @@ export const useCanvasEvents = ({
     if (canvas) {
       canvas.on("object:added", () => save());
       canvas.on("object:removed", () => save());
-      canvas.on("object:modified", () => save());
+      // Note: object:modified save is handled in use-snapping.ts after snap logic
       canvas.on("selection:created", (e) => {
         setSelectedObjects(e.selected || []);
       });
@@ -35,7 +35,6 @@ export const useCanvasEvents = ({
       if (canvas) {
         canvas.off("object:added");
         canvas.off("object:removed");
-        canvas.off("object:modified");
         canvas.off("selection:created");
         canvas.off("selection:updated");
         canvas.off("selection:cleared");

@@ -12,12 +12,14 @@ interface UseSnappingProps {
   canvas: fabric.Canvas | null;
   snappingOptions: SnappingOptions;
   onSnapLinesChange: (lines: SnapLine[]) => void;
+  save: (skip?: boolean) => void;
 }
 
 export const useSnapping = ({
   canvas,
   snappingOptions,
   onSnapLinesChange,
+  save,
 }: UseSnappingProps) => {
   useEffect(() => {
     if (!canvas) return;
@@ -179,9 +181,64 @@ export const useSnapping = ({
       const target = e.target;
       if (!target || target.name === "clip") return;
 
-      // We can add scaling-specific snapping here if needed
-      // For now, just clear snap lines during scaling
+      // Clear snap lines during scaling for smooth interaction
       onSnapLinesChange([]);
+
+      // Apply scaling snap while dragging if snap to grid is enabled
+      if (snappingOptions.snapToGrid) {
+        const currentWidth = target.getScaledWidth();
+        const currentHeight = target.getScaledHeight();
+
+        const snappedWidth = Math.round(currentWidth / snappingOptions.snapGridSize) * snappingOptions.snapGridSize;
+        const snappedHeight = Math.round(currentHeight / snappingOptions.snapGridSize) * snappingOptions.snapGridSize;
+
+        const widthDiff = Math.abs(currentWidth - snappedWidth);
+        const heightDiff = Math.abs(currentHeight - snappedHeight);
+
+        // Determine origin based on which corner is being dragged
+        // @ts-ignore - __corner exists during scaling
+        const corner = target.__corner;
+
+        let originX: 'left' | 'center' | 'right' = 'left';
+        let originY: 'top' | 'center' | 'bottom' = 'top';
+
+        // Map corner to the opposite origin point (the point that should stay fixed)
+        if (corner) {
+          if (corner.includes('l')) {
+            originX = 'right'; // Left handle - fix right edge
+          } else if (corner.includes('r')) {
+            originX = 'left'; // Right handle - fix left edge
+          } else {
+            originX = 'center'; // Middle handles
+          }
+
+          if (corner.includes('t')) {
+            originY = 'bottom'; // Top handle - fix bottom edge
+          } else if (corner.includes('b')) {
+            originY = 'top'; // Bottom handle - fix top edge
+          } else {
+            originY = 'center'; // Middle handles
+          }
+        }
+
+        // Get the position of the origin point before scaling
+        const originPoint = target.getPointByOrigin(originX, originY);
+
+        // Apply scale adjustments only if within threshold
+        if (widthDiff < snappingOptions.snapThreshold) {
+          const scaleAdjustmentX = snappedWidth / currentWidth;
+          target.scaleX = (target.scaleX || 1) * scaleAdjustmentX;
+        }
+
+        if (heightDiff < snappingOptions.snapThreshold) {
+          const scaleAdjustmentY = snappedHeight / currentHeight;
+          target.scaleY = (target.scaleY || 1) * scaleAdjustmentY;
+        }
+
+        // Restore the origin point position to prevent sliding
+        target.setPositionByOrigin(originPoint, originX, originY);
+        target.setCoords();
+      }
     };
 
     const handleObjectRotating = (e: fabric.IEvent) => {
@@ -201,9 +258,12 @@ export const useSnapping = ({
       onSnapLinesChange([]);
     };
 
-    const handleObjectModified = () => {
+    const handleObjectModified = (e: fabric.IEvent) => {
       // Clear snap lines when object modification is complete
       onSnapLinesChange([]);
+
+      // Save canvas state
+      save();
     };
 
     const handleSelectionCleared = () => {
@@ -226,5 +286,5 @@ export const useSnapping = ({
       canvas.off("object:modified", handleObjectModified);
       canvas.off("selection:cleared", handleSelectionCleared);
     };
-  }, [canvas, snappingOptions, onSnapLinesChange]);
+  }, [canvas, snappingOptions, onSnapLinesChange, save]);
 };
