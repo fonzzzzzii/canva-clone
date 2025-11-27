@@ -24,15 +24,56 @@ export const useSnapping = ({
   useEffect(() => {
     if (!canvas) return;
 
-    const getWorkspace = () => {
-      return canvas.getObjects().find((obj) => obj.name === "clip");
+    const getWorkspaceForObject = (obj: fabric.Object) => {
+      const workspaces = canvas
+        .getObjects()
+        .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
+
+      if (workspaces.length <= 1) {
+        return workspaces[0];
+      }
+
+      // Get object's center point
+      const objCenter = obj.getCenterPoint();
+
+      // First, try to find workspace that contains the object's center
+      for (const ws of workspaces) {
+        const bounds = ws.getBoundingRect();
+        if (
+          objCenter.x >= bounds.left &&
+          objCenter.x <= bounds.left + bounds.width &&
+          objCenter.y >= bounds.top &&
+          objCenter.y <= bounds.top + bounds.height
+        ) {
+          return ws;
+        }
+      }
+
+      // If not inside any workspace, find the closest one
+      let closestWorkspace = workspaces[0];
+      let minDistance = Infinity;
+
+      workspaces.forEach((ws) => {
+        const wsCenter = ws.getCenterPoint();
+        const distance = Math.sqrt(
+          Math.pow(wsCenter.x - objCenter.x, 2) +
+          Math.pow(wsCenter.y - objCenter.y, 2)
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestWorkspace = ws;
+        }
+      });
+
+      return closestWorkspace;
     };
 
     const handleObjectMoving = (e: fabric.IEvent) => {
       const target = e.target;
-      if (!target || target.name === "clip") return;
+      // Skip if target is a workspace
+      if (!target || target.name === "clip" || target.name?.startsWith("clip-page-")) return;
 
-      const workspace = getWorkspace();
+      const workspace = getWorkspaceForObject(target);
       if (!workspace) return;
 
       const snapLines: SnapLine[] = [];

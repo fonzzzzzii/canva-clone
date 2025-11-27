@@ -172,7 +172,8 @@ export function findAlignmentLines(
   };
 
   canvas.getObjects().forEach((obj) => {
-    if (obj === activeObject || obj.name === "clip") return;
+    // Skip the active object and all workspaces (both single and multi-page)
+    if (obj === activeObject || obj.name === "clip" || obj.name?.startsWith("clip-page-")) return;
 
     const objBounds = obj.getBoundingRect();
     const objCenter = {

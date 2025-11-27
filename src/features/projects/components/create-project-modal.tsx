@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Grid, Sparkles, ArrowRight, ArrowLeft, X, GripVertical } from "lucide-react";
+import { Loader2, Grid, Sparkles, ArrowRight, ArrowLeft, X, GripVertical, Plus } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -24,7 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useCreateProjectModal } from "@/features/projects/store/use-create-project-modal";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { generateCanvasJsonWithImages } from "@/features/editor/utils/generate-canvas-json";
-import { UploadDropzone } from "@/lib/uploadthing";
+import { UploadDropzone, UploadButton } from "@/lib/uploadthing";
 
 import {
   Dialog,
@@ -136,7 +136,8 @@ export const CreateProjectModal = () => {
   const [name, setName] = useState("Untitled project");
   const [uploadedImages, setUploadedImages] = useState<ImageMetadata[]>([]);
   const [layoutType, setLayoutType] = useState<LayoutType>(null);
-  const [pageCount, setPageCount] = useState(1);
+  const [pageCount, setPageCount] = useState(2); // Start with 2 (even number)
+  const [pageCountInput, setPageCountInput] = useState("2"); // String value for controlled input
   const [sortBy, setSortBy] = useState<SortBy>("date-asc");
 
   // Drag and drop sensors
@@ -161,26 +162,54 @@ export const CreateProjectModal = () => {
     }
   };
 
-  // Calculate suggested page count based on images
+  // Calculate suggested page count based on images (always even)
   const getSuggestedPageCount = (imageCount: number): number => {
-    if (imageCount === 0) return 1;
+    if (imageCount === 0) return 2;
     // Suggest 4 images per page as baseline
-    return Math.ceil(imageCount / 4);
+    const calculatedPages = Math.ceil(imageCount / 4);
+    // Round up to nearest even number
+    return calculatedPages % 2 === 0 ? calculatedPages : calculatedPages + 1;
   };
 
   // Update suggested page count when images change
   useEffect(() => {
     if (uploadedImages.length > 0) {
-      setPageCount(getSuggestedPageCount(uploadedImages.length));
+      const suggested = getSuggestedPageCount(uploadedImages.length);
+      setPageCount(suggested);
+      setPageCountInput(suggested.toString());
     }
   }, [uploadedImages]);
+
+  // Debounced validation for page count input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const value = parseInt(pageCountInput);
+      if (!isNaN(value) && value > 0) {
+        let validValue = value;
+        // Ensure it's even
+        if (validValue % 2 !== 0) {
+          validValue = validValue + 1;
+        }
+        // Clamp between 2 and 100
+        validValue = Math.min(Math.max(2, validValue), 100);
+
+        if (validValue !== value) {
+          setPageCountInput(validValue.toString());
+        }
+        setPageCount(validValue);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [pageCountInput]);
 
   const handleClose = () => {
     setStep(1);
     setName("Untitled project");
     setUploadedImages([]);
     setLayoutType(null);
-    setPageCount(1);
+    setPageCount(2);
+    setPageCountInput("2");
     onClose();
   };
 
@@ -196,14 +225,14 @@ export const CreateProjectModal = () => {
   };
 
   const handleStep2Skip = () => {
-    // Create empty project
+    // Create empty project with 2 pages (even number)
     mutation.mutate(
       {
         name,
         json: "",
         width: 2970,
         height: 2100,
-        pageCount: 1,
+        pageCount: 2,
       },
       {
         onSuccess: ({ data }) => {
@@ -266,23 +295,82 @@ export const CreateProjectModal = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {step === 1 && "Create New Album"}
-            {step === 2 && "Upload Photos"}
-            {step === 3 && "Choose Layout"}
-          </DialogTitle>
-          <DialogDescription>
-            <span className="text-sm text-muted-foreground">
-              Step {step} of 3
-            </span>
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <div className="border-b shrink-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle>
+              {step === 1 && "Create New Album"}
+              {step === 2 && "Upload Photos"}
+              {step === 3 && "Choose Layout"}
+            </DialogTitle>
+            <DialogDescription>
+              <span className="text-sm text-muted-foreground">
+                Step {step} of 3
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Step 2: Add Images and Sort controls - Fixed with header */}
+          {step === 2 && uploadedImages.length > 0 && (
+            <div className="px-6 pb-4 flex items-center justify-between">
+              {/* Add Images Button - Left */}
+              <UploadButton
+                endpoint="imageUploader"
+                config={{
+                  mode: "auto",
+                }}
+                appearance={{
+                  button: "ut-ready:bg-blue-500 ut-ready:hover:bg-blue-600 ut-uploading:bg-blue-400 whitespace-nowrap",
+                  allowedContent: "hidden",
+                }}
+                content={{
+                  button({ ready }) {
+                    if (ready) return (
+                      <div className="flex items-center gap-2">
+                        <Plus className="size-4" />
+                        <span>Add Images</span>
+                      </div>
+                    );
+                    return "Getting ready...";
+                  },
+                }}
+                onClientUploadComplete={(res) => {
+                  console.log("Upload complete:", res);
+                  const newImages: ImageMetadata[] = res.map((file) => ({
+                    url: file.url,
+                    uploadedAt: file.serverData?.uploadedAt || new Date().toISOString(),
+                    originalName: file.serverData?.originalName || file.name,
+                    size: file.serverData?.size || file.size,
+                    id: `${file.url}-${Date.now()}-${Math.random()}`,
+                  }));
+                  setUploadedImages((prev) => [...prev, ...newImages]);
+                }}
+              />
+
+              {/* Sort dropdown - Right */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Sort by:</span>
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-asc">Date ↑</SelectItem>
+                    <SelectItem value="date-desc">Date ↓</SelectItem>
+                    <SelectItem value="title">Title</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
 
         {/* Step 1: Project Name */}
         {step === 1 && (
-          <form onSubmit={handleStep1Next} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Album Name</Label>
               <Input
@@ -293,61 +381,40 @@ export const CreateProjectModal = () => {
                 disabled={mutation.isPending}
                 required
                 autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && name.trim()) {
+                    e.preventDefault();
+                    setStep(2);
+                  }
+                }}
               />
             </div>
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                Next
-                <ArrowRight className="size-4 ml-2" />
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
         )}
 
         {/* Step 2: Upload Images */}
         {step === 2 && (
           <div className="space-y-4">
-            <UploadDropzone
-              endpoint="imageUploader"
-              config={{
-                mode: "auto",
-              }}
-              onClientUploadComplete={(res) => {
-                console.log("Upload complete:", res);
-                const newImages: ImageMetadata[] = res.map((file) => ({
-                  url: file.url,
-                  uploadedAt: file.serverData?.uploadedAt || new Date().toISOString(),
-                  originalName: file.serverData?.originalName || file.name,
-                  size: file.serverData?.size || file.size,
-                  id: `${file.url}-${Date.now()}-${Math.random()}`,
-                }));
-                setUploadedImages((prev) => [...prev, ...newImages]);
-              }}
-            />
-
-            {uploadedImages.length > 0 && (
-              <div className="space-y-4">
-                {/* Header with count and sort */}
-                <div className="flex items-center justify-between">
-                  <Label>{uploadedImages.length} images selected</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Sort by:</span>
-                    <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="date-asc">Date ↑</SelectItem>
-                        <SelectItem value="date-desc">Date ↓</SelectItem>
-                        <SelectItem value="title">Title</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
+            {uploadedImages.length === 0 ? (
+              <UploadDropzone
+                endpoint="imageUploader"
+                config={{
+                  mode: "auto",
+                }}
+                onClientUploadComplete={(res) => {
+                  console.log("Upload complete:", res);
+                  const newImages: ImageMetadata[] = res.map((file) => ({
+                    url: file.url,
+                    uploadedAt: file.serverData?.uploadedAt || new Date().toISOString(),
+                    originalName: file.serverData?.originalName || file.name,
+                    size: file.serverData?.size || file.size,
+                    id: `${file.url}-${Date.now()}-${Math.random()}`,
+                  }));
+                  setUploadedImages((prev) => [...prev, ...newImages]);
+                }}
+              />
+            ) : (
+              <>
                 {/* Sortable Grid */}
                 <DndContext
                   sensors={sensors}
@@ -369,35 +436,8 @@ export const CreateProjectModal = () => {
                     </div>
                   </SortableContext>
                 </DndContext>
-              </div>
+              </>
             )}
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep(1)}
-              >
-                <ArrowLeft className="size-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleStep2Skip}
-                disabled={mutation.isPending}
-              >
-                Skip
-              </Button>
-              <Button
-                type="button"
-                onClick={handleStep2Next}
-                disabled={uploadedImages.length === 0}
-              >
-                Next
-                <ArrowRight className="size-4 ml-2" />
-              </Button>
-            </DialogFooter>
           </div>
         )}
 
@@ -446,24 +486,94 @@ export const CreateProjectModal = () => {
             {/* Manual Layout: Page Count Input */}
             {layoutType === "manual" && (
               <div className="space-y-2 p-4 bg-muted rounded-lg">
-                <Label htmlFor="pageCount">Number of Pages</Label>
+                <Label htmlFor="pageCount">Number of Pages (must be even)</Label>
                 <Input
                   id="pageCount"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={pageCount}
-                  onChange={(e) => setPageCount(parseInt(e.target.value) || 1)}
+                  type="text"
+                  inputMode="numeric"
+                  value={pageCountInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string or numbers only
+                    if (value === "" || /^\d+$/.test(value)) {
+                      setPageCountInput(value);
+                    }
+                  }}
                   placeholder={`Suggested: ${getSuggestedPageCount(uploadedImages.length)}`}
                 />
                 <p className="text-sm text-muted-foreground">
                   Suggested: {getSuggestedPageCount(uploadedImages.length)} pages for{" "}
-                  {uploadedImages.length} images
+                  {uploadedImages.length} images. Page count must be even for book spread layout.
                 </p>
               </div>
             )}
+          </div>
+        )}
+        </div>
+        {/* End of scrollable content area */}
 
-            <DialogFooter className="pt-2">
+        {/* Fixed Footer */}
+        <div className="border-t px-6 py-4 shrink-0">
+          {/* Step 1 Footer */}
+          {step === 1 && (
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => name.trim() && setStep(2)}
+                disabled={!name.trim()}
+              >
+                Next
+                <ArrowRight className="size-4 ml-2" />
+              </Button>
+            </div>
+          )}
+
+          {/* Step 2 Footer */}
+          {step === 2 && (
+            <div className="flex items-center justify-between w-full">
+              {/* Image count on the left */}
+              <div className="text-sm text-muted-foreground">
+                {uploadedImages.length > 0 && (
+                  <span>{uploadedImages.length} image{uploadedImages.length !== 1 ? 's' : ''} selected</span>
+                )}
+              </div>
+
+              {/* Buttons on the right */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep(1)}
+                >
+                  <ArrowLeft className="size-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleStep2Skip}
+                  disabled={mutation.isPending}
+                >
+                  Skip
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleStep2Next}
+                  disabled={uploadedImages.length === 0}
+                >
+                  Next
+                  <ArrowRight className="size-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 Footer */}
+          {step === 3 && (
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -486,9 +596,9 @@ export const CreateProjectModal = () => {
                   "Create Album"
                 )}
               </Button>
-            </DialogFooter>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
