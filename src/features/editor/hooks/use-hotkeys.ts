@@ -10,6 +10,9 @@ interface UseHotkeysProps {
   paste: () => void;
   toggleGrid?: () => void;
   toggleSnapping?: () => void;
+  zoomIn?: () => void;
+  zoomOut?: () => void;
+  autoZoom?: () => void;
 }
 
 export const useHotkeys = ({
@@ -21,6 +24,9 @@ export const useHotkeys = ({
   paste,
   toggleGrid,
   toggleSnapping,
+  zoomIn,
+  zoomOut,
+  autoZoom,
 }: UseHotkeysProps) => {
   useEvent("keydown", (event) => {
     const isCtrlKey = event.ctrlKey || event.metaKey;
@@ -87,6 +93,24 @@ export const useHotkeys = ({
     if (isCtrlKey && event.key === "'") {
       event.preventDefault();
       toggleSnapping?.();
+    }
+
+    // Ctrl+= or Ctrl++: Zoom in
+    if (isCtrlKey && (event.key === "=" || event.key === "+")) {
+      event.preventDefault();
+      zoomIn?.();
+    }
+
+    // Ctrl+-: Zoom out
+    if (isCtrlKey && event.key === "-") {
+      event.preventDefault();
+      zoomOut?.();
+    }
+
+    // Ctrl+0: Reset zoom
+    if (isCtrlKey && event.key === "0") {
+      event.preventDefault();
+      autoZoom?.();
     }
   });
 };

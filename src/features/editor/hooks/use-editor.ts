@@ -35,6 +35,7 @@ import { useCanvasEvents } from "@/features/editor/hooks/use-canvas-events";
 import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 import { useSnapping } from "@/features/editor/hooks/use-snapping";
+import { useMouseEvents } from "@/features/editor/hooks/use-mouse-events";
 
 const buildEditor = ({
   save,
@@ -154,21 +155,21 @@ const buildEditor = ({
     canRedo,
     autoZoom,
     getWorkspace,
-    zoomIn: () => {
+    zoomIn: (point?: fabric.Point) => {
       let zoomRatio = canvas.getZoom();
       zoomRatio += 0.05;
-      const center = canvas.getCenter();
+      const zoomPoint = point || new fabric.Point(canvas.getCenter().left, canvas.getCenter().top);
       canvas.zoomToPoint(
-        new fabric.Point(center.left, center.top),
+        zoomPoint,
         zoomRatio > 1 ? 1 : zoomRatio
       );
     },
-    zoomOut: () => {
+    zoomOut: (point?: fabric.Point) => {
       let zoomRatio = canvas.getZoom();
       zoomRatio -= 0.05;
-      const center = canvas.getCenter();
+      const zoomPoint = point || new fabric.Point(canvas.getCenter().left, canvas.getCenter().top);
       canvas.zoomToPoint(
-        new fabric.Point(center.left, center.top),
+        zoomPoint,
         zoomRatio < 0.2 ? 0.2 : zoomRatio,
       );
     },
@@ -741,6 +742,28 @@ export const useEditor = ({
     });
   }, []);
 
+  const zoomIn = useCallback(() => {
+    if (!canvas) return;
+    let zoomRatio = canvas.getZoom();
+    zoomRatio += 0.05;
+    const center = canvas.getCenter();
+    canvas.zoomToPoint(
+      new fabric.Point(center.left, center.top),
+      zoomRatio > 1 ? 1 : zoomRatio
+    );
+  }, [canvas]);
+
+  const zoomOut = useCallback(() => {
+    if (!canvas) return;
+    let zoomRatio = canvas.getZoom();
+    zoomRatio -= 0.05;
+    const center = canvas.getCenter();
+    canvas.zoomToPoint(
+      new fabric.Point(center.left, center.top),
+      zoomRatio < 0.2 ? 0.2 : zoomRatio
+    );
+  }, [canvas]);
+
   useHotkeys({
     undo,
     redo,
@@ -750,6 +773,9 @@ export const useEditor = ({
     canvas,
     toggleGrid,
     toggleSnapping,
+    zoomIn,
+    zoomOut,
+    autoZoom,
   });
 
   useLoadState({
@@ -765,6 +791,10 @@ export const useEditor = ({
     snappingOptions,
     onSnapLinesChange: setSnapLines,
     save,
+  });
+
+  useMouseEvents({
+    canvas,
   });
 
   const editor = useMemo(() => {
