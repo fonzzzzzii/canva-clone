@@ -1,5 +1,5 @@
 import { fabric } from "fabric";
-import { useCallback, useState, useMemo, useRef } from "react";
+import { useCallback, useState, useMemo, useRef, useEffect } from "react";
 
 import {
   Editor,
@@ -60,6 +60,9 @@ const buildEditor = ({
   setStrokeDashArray,
   snappingOptions,
   setSnappingOptions,
+  pageCount,
+  focusedPageNumber,
+  setFocusedPageNumber,
 }: BuildEditorProps): Editor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
@@ -135,8 +138,43 @@ const buildEditor = ({
     .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
   };
 
+  const getFocusedWorkspace = () => {
+    const workspaces = getWorkspaces();
+
+    // For single page, return the first workspace
+    if (workspaces.length <= 1) {
+      return workspaces[0];
+    }
+
+    // For multi-page, find the workspace with matching pageNumber
+    // @ts-ignore
+    const focusedWorkspace = workspaces.find((ws) => ws.pageNumber === focusedPageNumber);
+
+    // Fall back to first workspace if focused page not found
+    return focusedWorkspace || workspaces[0];
+  };
+
+  const updatePageFocusVisuals = () => {
+    const workspaces = getWorkspaces();
+
+    if (workspaces.length <= 1) return;
+
+    workspaces.forEach((workspace) => {
+      // @ts-ignore
+      const isFocused = workspace.pageNumber === focusedPageNumber;
+
+      workspace.set({
+        stroke: isFocused ? "#3b82f6" : undefined,
+        strokeWidth: isFocused ? 4 : 0,
+      });
+      workspace.setCoords();
+    });
+
+    canvas.requestRenderAll();
+  };
+
   const center = (object: fabric.Object) => {
-    const workspace = getWorkspace();
+    const workspace = getFocusedWorkspace();
     const center = workspace?.getCenterPoint();
 
     if (!center) return;
@@ -149,6 +187,45 @@ const buildEditor = ({
     center(object);
     canvas.add(object);
     canvas.setActiveObject(object);
+  };
+
+  const zoomToPage = (pageNumber: number) => {
+    const workspaces = getWorkspaces();
+
+    // Find the workspace for this page
+    // @ts-ignore
+    const targetWorkspace = workspaces.find((ws) => ws.pageNumber === pageNumber);
+
+    if (!targetWorkspace) return;
+
+    // Get workspace dimensions and center in object coordinates
+    const workspaceCenter = targetWorkspace.getCenterPoint();
+    const workspaceWidth = targetWorkspace.width || 1;
+    const workspaceHeight = targetWorkspace.height || 1;
+
+    // Calculate zoom to fit the page nicely (85% of viewport)
+    const containerWidth = canvas.getWidth() || 1;
+    const containerHeight = canvas.getHeight() || 1;
+
+    const scaleX = containerWidth / workspaceWidth;
+    const scaleY = containerHeight / workspaceHeight;
+    const scale = Math.min(scaleX, scaleY) * 0.85;
+
+    // Reset viewport transform
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+    // Set zoom level
+    canvas.setZoom(scale);
+
+    // Center the workspace in the viewport
+    const vpt = canvas.viewportTransform;
+    if (vpt) {
+      vpt[4] = containerWidth / 2 - workspaceCenter.x * scale;
+      vpt[5] = containerHeight / 2 - workspaceCenter.y * scale;
+      canvas.setViewportTransform(vpt);
+    }
+
+    canvas.requestRenderAll();
   };
 
   return {
@@ -179,6 +256,7 @@ const buildEditor = ({
         zoomRatio < 0.01 ? 0.01 : zoomRatio,
       );
     },
+    zoomToPage,
     changeSize: (value: { width: number; height: number }) => {
       const workspace = getWorkspace();
 
@@ -890,6 +968,22 @@ const buildEditor = ({
       canvas.renderAll();
       save();
     },
+    setFocusedPage: (newPageNumber: number) => {
+      // Validate page number
+      if (newPageNumber < 1 || newPageNumber > pageCount) {
+        return;
+      }
+
+      setFocusedPageNumber(newPageNumber);
+      updatePageFocusVisuals();
+      zoomToPage(newPageNumber);
+    },
+    getFocusedPageNumber: () => {
+      return focusedPageNumber;
+    },
+    getPageCount: () => {
+      return pageCount;
+    },
   };
 };
 
@@ -909,6 +1003,7 @@ export const useEditor = ({
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<fabric.Object[]>([]);
+  const [focusedPageNumber, setFocusedPageNumber] = useState<number>(1);
 
   const [fontFamily, setFontFamily] = useState(FONT_FAMILY);
   const [fillColor, setFillColor] = useState(FILL_COLOR);
@@ -1034,6 +1129,105 @@ export const useEditor = ({
     canvas,
   });
 
+  // Update page focus visuals when canvas is ready or focused page changes
+  useEffect(() => {
+    if (!canvas) return;
+
+    const workspaces = canvas
+      .getObjects()
+      .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
+
+    if (workspaces.length <= 1) return;
+
+    workspaces.forEach((workspace) => {
+      // @ts-ignore
+      const isFocused = workspace.pageNumber === focusedPageNumber;
+
+      workspace.set({
+        stroke: isFocused ? "#3b82f6" : undefined,
+        strokeWidth: isFocused ? 4 : 0,
+      });
+      workspace.setCoords();
+    });
+
+    canvas.requestRenderAll();
+  }, [canvas, focusedPageNumber]);
+
+  // Auto-select page when clicking on workspace or objects
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleMouseDown = (e: fabric.IEvent) => {
+      const workspaces = canvas
+        .getObjects()
+        .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
+
+      if (workspaces.length <= 1) return;
+
+      // Check if an object was clicked
+      if (e.target) {
+        // If the target is a workspace, select that page
+        if (e.target.name === "clip" || e.target.name?.startsWith("clip-page-")) {
+          // @ts-ignore
+          const pageNum = e.target.pageNumber;
+          if (pageNum && pageNum !== focusedPageNumber) {
+            setFocusedPageNumber(pageNum);
+          }
+          return;
+        }
+
+        // If an object was clicked, find which workspace it's on
+        const objCenter = e.target.getCenterPoint();
+
+        for (const workspace of workspaces) {
+          const bounds = workspace.getBoundingRect();
+
+          // Check if object center is within this workspace bounds
+          if (
+            objCenter.x >= bounds.left &&
+            objCenter.x <= bounds.left + bounds.width &&
+            objCenter.y >= bounds.top &&
+            objCenter.y <= bounds.top + bounds.height
+          ) {
+            // @ts-ignore
+            const pageNum = workspace.pageNumber;
+            if (pageNum && pageNum !== focusedPageNumber) {
+              setFocusedPageNumber(pageNum);
+            }
+            break;
+          }
+        }
+      } else {
+        // Empty space was clicked - find which workspace was clicked
+        const pointer = canvas.getPointer(e.e as MouseEvent);
+
+        for (const workspace of workspaces) {
+          const bounds = workspace.getBoundingRect();
+
+          if (
+            pointer.x >= bounds.left &&
+            pointer.x <= bounds.left + bounds.width &&
+            pointer.y >= bounds.top &&
+            pointer.y <= bounds.top + bounds.height
+          ) {
+            // @ts-ignore
+            const pageNum = workspace.pageNumber;
+            if (pageNum && pageNum !== focusedPageNumber) {
+              setFocusedPageNumber(pageNum);
+            }
+            break;
+          }
+        }
+      }
+    };
+
+    canvas.on("mouse:down", handleMouseDown);
+
+    return () => {
+      canvas.off("mouse:down", handleMouseDown);
+    };
+  }, [canvas, focusedPageNumber, setFocusedPageNumber]);
+
   const editor = useMemo(() => {
     if (canvas) {
       return buildEditor({
@@ -1059,6 +1253,9 @@ export const useEditor = ({
         setFontFamily,
         snappingOptions,
         setSnappingOptions,
+        pageCount: initialPageCount.current,
+        focusedPageNumber,
+        setFocusedPageNumber,
       });
     }
 
@@ -1081,6 +1278,8 @@ export const useEditor = ({
     strokeDashArray,
     fontFamily,
     snappingOptions,
+    focusedPageNumber,
+    setFocusedPageNumber,
   ]);
 
   const init = useCallback(

@@ -223,6 +223,9 @@ export type BuildEditorProps = {
   setFontFamily: (value: string) => void;
   snappingOptions: SnappingOptions;
   setSnappingOptions: (options: Partial<SnappingOptions>) => void;
+  pageCount: number;
+  focusedPageNumber: number;
+  setFocusedPageNumber: (pageNumber: number) => void;
 };
 
 export interface Editor {
@@ -299,4 +302,8 @@ export interface Editor {
   alignBottom: () => void;
   distributeHorizontal: () => void;
   distributeVertical: () => void;
+  setFocusedPage: (pageNumber: number) => void;
+  getFocusedPageNumber: () => number;
+  getPageCount: () => number;
+  zoomToPage: (pageNumber: number) => void;
 };
