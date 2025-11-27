@@ -28,6 +28,8 @@ import {
   isTextType,
   transformText
 } from "@/features/editor/utils";
+import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { FramedImage } from "@/features/editor/objects/framed-image";
 import { useHotkeys } from "@/features/editor/hooks/use-hotkeys";
 import { useClipboard } from "@/features/editor/hooks//use-clipboard";
 import { useAutoResize } from "@/features/editor/hooks/use-auto-resize";
@@ -36,6 +38,7 @@ import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 import { useSnapping } from "@/features/editor/hooks/use-snapping";
 import { useMouseEvents } from "@/features/editor/hooks/use-mouse-events";
+// Removed old FramedImage import - now using CroppableImage
 
 const buildEditor = ({
   save,
@@ -121,9 +124,64 @@ const buildEditor = ({
   const loadJson = (json: string) => {
     const data = JSON.parse(json);
 
-    canvas.loadFromJSON(data, () => {
-      autoZoom();
-    });
+    console.log("[LoadJSON Debug] Loading canvas with objects:", data.objects.map((obj: any) => ({
+      type: obj.type,
+      hasImageUrl: !!obj.imageUrl,
+    })));
+
+    // Register FramedImage for deserialization
+    fabric.util.enlivenObjects(
+      data.objects,
+      (enlivenedObjects: fabric.Object[]) => {
+        console.log("[LoadJSON Debug] Enlivened objects:", enlivenedObjects.map((obj: any) => ({
+          type: obj.type,
+          hasImageUrl: !!obj.imageUrl,
+        })));
+
+        enlivenedObjects.forEach((obj: any) => {
+          // Handle FramedImage custom objects (type === "framedImage" or groups with imageUrl)
+          if (obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) {
+            console.log("[LoadJSON Debug] Found FramedImage group, deserializing...");
+            FramedImage.fromObject(obj, (framedImage) => {
+              console.log("[LoadJSON Debug] FramedImage deserialized:", framedImage.type);
+              canvas.add(framedImage);
+            });
+          }
+          // Convert old fabric.Image objects to FramedImage (migration)
+          else if (obj.type === "image" && !obj.name?.startsWith("clip")) {
+            console.log("[LoadJSON Debug] Found old image, converting to FramedImage...");
+            const imageUrl = (obj as any).getSrc?.() || (obj as any).src || (obj as any)._element?.src;
+            if (imageUrl) {
+              // Create FramedImage from this old image
+              const framedImage = new FramedImage(obj as fabric.Image, {
+                imageUrl,
+                frameWidth: 400,
+                frameHeight: 400,
+                fitMode: "fill",
+                left: obj.left,
+                top: obj.top,
+              });
+              canvas.add(framedImage);
+            } else {
+              canvas.add(obj);
+            }
+          } else {
+            console.log("[LoadJSON Debug] Adding regular object:", obj.type);
+            canvas.add(obj);
+          }
+        });
+
+        // Set canvas properties
+        if (data.background) {
+          canvas.setBackgroundColor(data.background, () => {
+            canvas.renderAll();
+          });
+        }
+
+        autoZoom();
+      },
+      ""
+    );
   };
 
   const getWorkspace = () => {
@@ -299,15 +357,88 @@ const buildEditor = ({
       });
     },
     addImage: (value: string) => {
+      console.log("[AddImage Debug] addImage called with URL:", value);
       fabric.Image.fromURL(
         value,
-        (image) => {
+        (loadedImage) => {
+          console.log("[AddImage Debug] Image loaded from URL, creating frame+image pair...");
           const workspace = getWorkspace();
 
-          image.scaleToWidth(workspace?.width || 0);
-          image.scaleToHeight(workspace?.height || 0);
+          // Determine default frame size
+          const defaultFrameSize = 400;
+          const frameWidth = Math.min(workspace?.width || defaultFrameSize, defaultFrameSize);
+          const frameHeight = Math.min(workspace?.height || defaultFrameSize, defaultFrameSize);
 
-          addToCanvas(image);
+          // Generate unique IDs for linking
+          const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const frameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // Get workspace center for positioning
+          const workspaceCenter = workspace ? {
+            x: (workspace.left || 0) + (workspace.width || 0) / 2,
+            y: (workspace.top || 0) + (workspace.height || 0) / 2,
+          } : { x: 300, y: 300 };
+
+          // Create the frame (visible, selectable)
+          const frame = new ImageFrame({
+            id: frameId,
+            linkedImageId: imageId,
+            width: frameWidth,
+            height: frameHeight,
+            left: workspaceCenter.x,
+            top: workspaceCenter.y,
+            originX: "center",
+            originY: "center",
+            fill: "transparent",
+          });
+
+          // Create the framed image (clipped, non-selectable initially)
+          const element = (loadedImage as any).getElement();
+          const framedImage = new FramedImage(element, {
+            id: imageId,
+            linkedFrameId: frameId,
+            imageUrl: value,
+            left: workspaceCenter.x,
+            top: workspaceCenter.y,
+          });
+
+          // Scale image to cover the frame
+          const imgWidth = loadedImage.width || 1;
+          const imgHeight = loadedImage.height || 1;
+          const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight);
+          framedImage.scale(scale);
+
+          // Initialize the custom scale to match the cover scale
+          framedImage.customScaleX = scale;
+          framedImage.customScaleY = scale;
+
+          // Apply initial clipping
+          framedImage.applyFrameClip(frame);
+
+          console.log("[AddImage Debug] Created frame+image pair:", {
+            frameId,
+            imageId,
+            frameWidth,
+            frameHeight,
+            imageScale: scale,
+          });
+
+          // Add both to canvas - image first (behind), then frame (on top for selection)
+          canvas.add(framedImage);
+          canvas.add(frame);
+
+          // Center on workspace
+          canvas.centerObject(frame);
+          framedImage.set({
+            left: frame.left,
+            top: frame.top,
+          });
+          framedImage.applyFrameClip(frame);
+
+          // Select the frame
+          canvas.setActiveObject(frame);
+          canvas.requestRenderAll();
+          save();
         },
         {
           crossOrigin: "anonymous",
@@ -315,7 +446,31 @@ const buildEditor = ({
       );
     },
     delete: () => {
-      canvas.getActiveObjects().forEach((object) => canvas.remove(object));
+      const objectsToRemove: fabric.Object[] = [];
+
+      canvas.getActiveObjects().forEach((object) => {
+        objectsToRemove.push(object);
+
+        // If deleting a frame, also delete its linked image
+        if (object.type === "imageFrame") {
+          const frame = object as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage && !objectsToRemove.includes(linkedImage)) {
+            objectsToRemove.push(linkedImage);
+          }
+        }
+
+        // If deleting an image, also delete its linked frame
+        if (object.type === "framedImage") {
+          const image = object as FramedImage;
+          const linkedFrame = image.getLinkedFrame(canvas);
+          if (linkedFrame && !objectsToRemove.includes(linkedFrame)) {
+            objectsToRemove.push(linkedFrame);
+          }
+        }
+      });
+
+      objectsToRemove.forEach((obj) => canvas.remove(obj));
       canvas.discardActiveObject();
       canvas.renderAll();
     },
@@ -1004,12 +1159,14 @@ export const useEditor = ({
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<fabric.Object[]>([]);
   const [focusedPageNumber, setFocusedPageNumber] = useState<number>(1);
+  const [imageEditMode, setImageEditMode] = useState(false);
 
   const [fontFamily, setFontFamily] = useState(FONT_FAMILY);
   const [fillColor, setFillColor] = useState(FILL_COLOR);
   const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
   const [strokeWidth, setStrokeWidth] = useState(STROKE_WIDTH);
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
+  const activeFramedImageRef = useRef<FramedImage | null>(null);
 
   const [snappingOptions, setSnappingOptions] = useState<SnappingOptions>({
     snapToGrid: true,
@@ -1123,11 +1280,71 @@ export const useEditor = ({
     snappingOptions,
     onSnapLinesChange: setSnapLines,
     save,
+    imageEditMode,
   });
 
   useMouseEvents({
     canvas,
   });
+
+  // Handle FramedImage selection state to show/hide border
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleSelectionCreated = (e: fabric.IEvent) => {
+      const selected = e.selected;
+      if (selected) {
+        selected.forEach((obj: any) => {
+          if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
+            obj.setSelected(true);
+          }
+        });
+        canvas.requestRenderAll();
+      }
+    };
+
+    const handleSelectionUpdated = (e: fabric.IEvent) => {
+      // Hide border on deselected objects
+      const deselected = (e as any).deselected;
+      if (deselected) {
+        deselected.forEach((obj: any) => {
+          if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
+            obj.setSelected(false);
+          }
+        });
+      }
+      // Show border on newly selected objects
+      const selected = e.selected;
+      if (selected) {
+        selected.forEach((obj: any) => {
+          if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
+            obj.setSelected(true);
+          }
+        });
+      }
+      canvas.requestRenderAll();
+    };
+
+    const handleSelectionCleared = () => {
+      // Hide border on all FramedImages
+      canvas.getObjects().forEach((obj: any) => {
+        if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
+          obj.setSelected(false);
+        }
+      });
+      canvas.requestRenderAll();
+    };
+
+    canvas.on("selection:created", handleSelectionCreated);
+    canvas.on("selection:updated", handleSelectionUpdated);
+    canvas.on("selection:cleared", handleSelectionCleared);
+
+    return () => {
+      canvas.off("selection:created", handleSelectionCreated);
+      canvas.off("selection:updated", handleSelectionUpdated);
+      canvas.off("selection:cleared", handleSelectionCleared);
+    };
+  }, [canvas]);
 
   // Update page focus visuals when canvas is ready or focused page changes
   useEffect(() => {
@@ -1227,6 +1444,233 @@ export const useEditor = ({
       canvas.off("mouse:down", handleMouseDown);
     };
   }, [canvas, focusedPageNumber, setFocusedPageNumber]);
+
+  // Handle double-click to enter edit mode on ImageFrame
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleDoubleClick = (e: fabric.IEvent) => {
+      const target = e.target;
+
+      // Double-click on frame enters image edit mode
+      if (target?.type === "imageFrame") {
+        const frame = target as ImageFrame;
+        const image = frame.getLinkedImage(canvas);
+
+        if (image) {
+          console.log("[FramedImage] Entering edit mode");
+          (image as FramedImage).enterEditMode(canvas);
+          canvas.setActiveObject(image);
+          canvas.requestRenderAll();
+        }
+      }
+    };
+
+    canvas.on("mouse:dblclick", handleDoubleClick);
+
+    return () => {
+      canvas.off("mouse:dblclick", handleDoubleClick);
+    };
+  }, [canvas]);
+
+  // Handle frame moving - keep image synced
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleObjectMoving = (e: fabric.IEvent) => {
+      const target = e.target;
+
+      if (target?.type === "imageFrame") {
+        const frame = target as ImageFrame;
+        const image = frame.getLinkedImage(canvas) as FramedImage | null;
+
+        if (image && !image.isInEditMode) {
+          // Keep image at frame position + stored offset (preserves crop position)
+          image.set({
+            left: (frame.left || 0) + image.offsetX,
+            top: (frame.top || 0) + image.offsetY,
+          });
+
+          // Update clipPath to match frame position
+          image.applyFrameClip(frame);
+        }
+      }
+    };
+
+    const handleObjectScaling = (e: fabric.IEvent) => {
+      const target = e.target;
+
+      if (target?.type === "imageFrame") {
+        const frame = target as ImageFrame;
+        const image = frame.getLinkedImage(canvas) as FramedImage | null;
+
+        if (image && !image.isInEditMode) {
+          // Calculate the scale DELTA (change from previous scale)
+          const scaleRatioX = (frame.scaleX || 1) / frame._previousScaleX;
+          const scaleRatioY = (frame.scaleY || 1) / frame._previousScaleY;
+
+          // Use the MAX ratio to maintain cover behavior (no stretching)
+          const uniformScaleRatio = Math.max(scaleRatioX, scaleRatioY);
+
+          // Apply uniform scale to maintain aspect ratio
+          const newOffsetX = image.offsetX * scaleRatioX;
+          const newOffsetY = image.offsetY * scaleRatioY;
+          const newScale = image.customScaleX * uniformScaleRatio;
+
+          // Apply the scaled position and uniform scale
+          image.set({
+            left: (frame.left || 0) + newOffsetX,
+            top: (frame.top || 0) + newOffsetY,
+            scaleX: newScale,
+            scaleY: newScale,
+          });
+
+          // Update clipPath to match new frame size
+          image.applyFrameClip(frame);
+        }
+      }
+    };
+
+    const handleObjectModified = (e: fabric.IEvent) => {
+      const target = e.target;
+
+      if (target?.type === "imageFrame") {
+        const frame = target as ImageFrame;
+
+        const image = frame.getLinkedImage(canvas) as FramedImage | null;
+        if (image && !image.isInEditMode) {
+          // Calculate the scale DELTA from the modification
+          const scaleRatioX = (frame.scaleX || 1) / frame._previousScaleX;
+          const scaleRatioY = (frame.scaleY || 1) / frame._previousScaleY;
+
+          // Use the MAX ratio to maintain cover behavior (no stretching)
+          const uniformScaleRatio = Math.max(scaleRatioX, scaleRatioY);
+
+          // Update stored offset (scaled by respective axis for position)
+          image.offsetX = image.offsetX * scaleRatioX;
+          image.offsetY = image.offsetY * scaleRatioY;
+
+          // Update stored scale uniformly (no stretching)
+          image.customScaleX = image.customScaleX * uniformScaleRatio;
+          image.customScaleY = image.customScaleX; // Keep uniform
+
+          // Final position
+          image.set({
+            left: (frame.left || 0) + image.offsetX,
+            top: (frame.top || 0) + image.offsetY,
+            scaleX: image.customScaleX,
+            scaleY: image.customScaleY,
+          });
+
+          image.applyFrameClip(frame);
+          image.setCoords();
+        }
+
+        // Update the frame's previous transform for next operation
+        frame.updatePreviousTransform();
+      }
+    };
+
+    canvas.on("object:moving", handleObjectMoving);
+    canvas.on("object:scaling", handleObjectScaling);
+    canvas.on("object:modified", handleObjectModified);
+
+    return () => {
+      canvas.off("object:moving", handleObjectMoving);
+      canvas.off("object:scaling", handleObjectScaling);
+      canvas.off("object:modified", handleObjectModified);
+    };
+  }, [canvas]);
+
+  // Handle selection cleared - exit edit mode
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleSelectionCleared = () => {
+      // Find any images in edit mode and exit
+      canvas.getObjects().forEach((obj) => {
+        if (obj.type === "framedImage" && (obj as FramedImage).isInEditMode) {
+          console.log("[FramedImage] Exiting edit mode (selection cleared)");
+          (obj as FramedImage).exitEditMode(canvas);
+        }
+      });
+      canvas.requestRenderAll();
+    };
+
+    canvas.on("selection:cleared", handleSelectionCleared);
+
+    return () => {
+      canvas.off("selection:cleared", handleSelectionCleared);
+    };
+  }, [canvas]);
+
+  // Handle Escape key to exit edit mode
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        canvas.getObjects().forEach((obj) => {
+          if (obj.type === "framedImage" && (obj as FramedImage).isInEditMode) {
+            const image = obj as FramedImage;
+            const frame = image.getLinkedFrame(canvas);
+            console.log("[FramedImage] Exiting edit mode (Escape pressed)");
+            image.exitEditMode(canvas);
+            if (frame) {
+              canvas.setActiveObject(frame);
+            }
+          }
+        });
+        canvas.requestRenderAll();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canvas]);
+
+  // Handle click outside image/frame to exit edit mode
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleMouseDown = (e: fabric.IEvent) => {
+      // Find any image in edit mode
+      const editingImage = canvas.getObjects().find(
+        (obj) => obj.type === "framedImage" && (obj as FramedImage).isInEditMode
+      ) as FramedImage | undefined;
+
+      if (!editingImage) return;
+
+      const clickedTarget = e.target;
+      const linkedFrame = editingImage.getLinkedFrame(canvas);
+
+      // If clicked on the editing image or its linked frame, don't exit
+      if (clickedTarget === editingImage || clickedTarget === linkedFrame) {
+        return;
+      }
+
+      // Clicked outside - exit edit mode
+      console.log("[FramedImage] Exiting edit mode (clicked outside)");
+      editingImage.exitEditMode(canvas);
+
+      // If clicked on another object, let fabric handle that selection
+      // If clicked on empty space, select the frame
+      if (!clickedTarget && linkedFrame) {
+        canvas.setActiveObject(linkedFrame);
+      }
+
+      canvas.requestRenderAll();
+    };
+
+    canvas.on("mouse:down", handleMouseDown);
+
+    return () => {
+      canvas.off("mouse:down", handleMouseDown);
+    };
+  }, [canvas]);
 
   const editor = useMemo(() => {
     if (canvas) {

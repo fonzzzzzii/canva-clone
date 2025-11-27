@@ -13,6 +13,7 @@ interface UseSnappingProps {
   snappingOptions: SnappingOptions;
   onSnapLinesChange: (lines: SnapLine[]) => void;
   save: (skip?: boolean) => void;
+  imageEditMode?: boolean;
 }
 
 export const useSnapping = ({
@@ -20,6 +21,7 @@ export const useSnapping = ({
   snappingOptions,
   onSnapLinesChange,
   save,
+  imageEditMode = false,
 }: UseSnappingProps) => {
   useEffect(() => {
     if (!canvas) return;
@@ -72,6 +74,12 @@ export const useSnapping = ({
       const target = e.target;
       // Skip if target is a workspace
       if (!target || target.name === "clip" || target.name?.startsWith("clip-page-")) return;
+
+      // Check if this is the content grabber (circle) being moved
+      // Skip snapping for framedImage objects (they're handled by their linked frame)
+      if (target.type === "framedImage") {
+        return;
+      }
 
       const workspace = getWorkspaceForObject(target);
       if (!workspace) return;
@@ -225,6 +233,12 @@ export const useSnapping = ({
       // Clear snap lines during scaling for smooth interaction
       onSnapLinesChange([]);
 
+      // Skip snapping for framedImage objects
+      if (target.type === "framedImage") {
+        return;
+      }
+
+      // Normal scaling behavior for non-FramedImage or when not in edit mode
       // Apply scaling snap while dragging if snap to grid is enabled
       if (snappingOptions.snapToGrid) {
         const currentWidth = target.getScaledWidth();
@@ -327,5 +341,5 @@ export const useSnapping = ({
       canvas.off("object:modified", handleObjectModified);
       canvas.off("selection:cleared", handleSelectionCleared);
     };
-  }, [canvas, snappingOptions, onSnapLinesChange, save]);
+  }, [canvas, snappingOptions, onSnapLinesChange, save, imageEditMode]);
 };

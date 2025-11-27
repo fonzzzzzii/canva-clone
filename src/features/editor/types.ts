@@ -12,7 +12,15 @@ export const JSON_KEYS = [
   "extensionType",
   "extension",
   "pageNumber",
-  "isPageWorkspace"
+  "isPageWorkspace",
+  "imageUrl",
+  "frameWidth",
+  "frameHeight",
+  "imageScaleX",
+  "imageScaleY",
+  "imageOffsetX",
+  "imageOffsetY",
+  "fitMode"
 ];
 
 export const filters = [
@@ -109,7 +117,8 @@ export type ActiveTool =
   | "settings"
   | "ai"
   | "remove-bg"
-  | "templates";
+  | "templates"
+  | "image-frame";
 
 export const FILL_COLOR = "rgba(0,0,0,1)";
 export const STROKE_COLOR = "rgba(0,0,0,1)";

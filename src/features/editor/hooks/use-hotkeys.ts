@@ -1,5 +1,7 @@
 import { fabric } from "fabric";
 import { useEvent } from "react-use";
+import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseHotkeysProps {
   canvas: fabric.Canvas | null;
@@ -38,16 +40,37 @@ export const useHotkeys = ({
 
     if (isInput) return;
 
-    // delete key
-    if (event.keyCode === 46) {
-      canvas?.getActiveObjects().forEach((Object) => canvas?.remove(Object));
-      canvas?.discardActiveObject();
-      canvas?.renderAll();
-    }
+    // delete key or backspace - delete selected objects and their linked pairs
+    if (event.keyCode === 46 || isBackspace) {
+      if (!canvas) return;
 
-    if (isBackspace) {
-      canvas?.remove(...canvas.getActiveObjects());
-      canvas?.discardActiveObject();
+      const objectsToRemove: fabric.Object[] = [];
+
+      canvas.getActiveObjects().forEach((object) => {
+        objectsToRemove.push(object);
+
+        // If deleting a frame, also delete its linked image
+        if (object.type === "imageFrame") {
+          const frame = object as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage && !objectsToRemove.includes(linkedImage)) {
+            objectsToRemove.push(linkedImage);
+          }
+        }
+
+        // If deleting an image, also delete its linked frame
+        if (object.type === "framedImage") {
+          const image = object as FramedImage;
+          const linkedFrame = image.getLinkedFrame(canvas);
+          if (linkedFrame && !objectsToRemove.includes(linkedFrame)) {
+            objectsToRemove.push(linkedFrame);
+          }
+        }
+      });
+
+      objectsToRemove.forEach((obj) => canvas.remove(obj));
+      canvas.discardActiveObject();
+      canvas.renderAll();
     }
 
     if (isCtrlKey && event.key === "z") {

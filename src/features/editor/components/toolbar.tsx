@@ -26,7 +26,8 @@ import {
   AlignCenterVertical,
   AlignEndVertical,
   AlignHorizontalSpaceBetween,
-  AlignVerticalSpaceBetween
+  AlignVerticalSpaceBetween,
+  Frame
 } from "lucide-react";
 
 import { isTextType } from "@/features/editor/utils";
@@ -80,6 +81,7 @@ export const Toolbar = ({
 
   const isText = isTextType(selectedObjectType);
   const isImage = selectedObjectType === "image";
+  const isFramedImage = selectedObjectType === "imageFrame" || selectedObjectType === "framedImage";
 
   const onChangeFontSize = (value: number) => {
     if (!selectedObject) {
@@ -362,6 +364,22 @@ export const Toolbar = ({
             value={properties.fontSize}
             onChange={onChangeFontSize}
          />
+        </div>
+      )}
+      {isFramedImage && (
+        <div className="flex items-center h-full justify-center">
+          <Hint label="Frame" side="bottom" sideOffset={5}>
+            <Button
+              onClick={() => onChangeActiveTool("image-frame")}
+              size="icon"
+              variant="ghost"
+              className={cn(
+                activeTool === "image-frame" && "bg-gray-100"
+              )}
+            >
+              <Frame className="size-4" />
+            </Button>
+          </Hint>
         </div>
       )}
       {isImage && (

@@ -2,6 +2,8 @@ import { fabric } from "fabric";
 import { useCallback, useRef, useState } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
+import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseHistoryProps {
   canvas: fabric.Canvas | null;
@@ -59,11 +61,34 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
         canvasHistory.current[previousIndex]
       );
 
+      // Custom reviver for our custom object types
+      const reviver = (obj: any, fabricObj: fabric.Object) => {
+        // After all objects are loaded, reapply clipPaths to FramedImages
+        if (fabricObj.type === "framedImage") {
+          const framedImage = fabricObj as FramedImage;
+          const linkedFrameId = framedImage.linkedFrameId;
+
+          if (linkedFrameId && canvas) {
+            // Find the linked frame and reapply clip
+            setTimeout(() => {
+              const frame = canvas.getObjects().find(
+                (o) => o.type === "imageFrame" && (o as ImageFrame).id === linkedFrameId
+              ) as ImageFrame | undefined;
+
+              if (frame) {
+                framedImage.applyFrameClip(frame);
+                canvas.requestRenderAll();
+              }
+            }, 0);
+          }
+        }
+      };
+
       canvas?.loadFromJSON(previousState, () => {
         canvas.renderAll();
         setHistoryIndex(previousIndex);
         skipSave.current = false;
-      });
+      }, reviver);
     }
   }, [canUndo, canvas, historyIndex]);
 
@@ -77,11 +102,34 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
         canvasHistory.current[nextIndex]
       );
 
+      // Custom reviver for our custom object types
+      const reviver = (obj: any, fabricObj: fabric.Object) => {
+        // After all objects are loaded, reapply clipPaths to FramedImages
+        if (fabricObj.type === "framedImage") {
+          const framedImage = fabricObj as FramedImage;
+          const linkedFrameId = framedImage.linkedFrameId;
+
+          if (linkedFrameId && canvas) {
+            // Find the linked frame and reapply clip
+            setTimeout(() => {
+              const frame = canvas.getObjects().find(
+                (o) => o.type === "imageFrame" && (o as ImageFrame).id === linkedFrameId
+              ) as ImageFrame | undefined;
+
+              if (frame) {
+                framedImage.applyFrameClip(frame);
+                canvas.requestRenderAll();
+              }
+            }, 0);
+          }
+        }
+      };
+
       canvas?.loadFromJSON(nextState, () => {
         canvas.renderAll();
         setHistoryIndex(nextIndex);
         skipSave.current = false;
-      });
+      }, reviver);
     }
   }, [canvas, historyIndex, canRedo]);
 
