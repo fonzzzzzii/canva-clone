@@ -2,6 +2,8 @@ import { fabric } from "fabric";
 import { useEffect, useRef } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
+import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseLoadStateProps {
   autoZoom: () => void;
@@ -24,6 +26,28 @@ export const useLoadState = ({
     if (!initialized.current && initialState?.current && canvas) {
       const data = JSON.parse(initialState.current);
 
+      // Custom reviver to reapply clipPaths after loading
+      const reviver = (obj: any, fabricObj: fabric.Object) => {
+        if (fabricObj.type === "framedImage") {
+          const framedImage = fabricObj as FramedImage;
+          const linkedFrameId = framedImage.linkedFrameId;
+
+          if (linkedFrameId) {
+            // Find the linked frame and reapply clip after all objects are loaded
+            setTimeout(() => {
+              const frame = canvas.getObjects().find(
+                (o) => o.type === "imageFrame" && (o as ImageFrame).id === linkedFrameId
+              ) as ImageFrame | undefined;
+
+              if (frame) {
+                framedImage.applyFrameClip(frame);
+                canvas.requestRenderAll();
+              }
+            }, 0);
+          }
+        }
+      };
+
       canvas.loadFromJSON(data, () => {
         const currentState = JSON.stringify(
           canvas.toJSON(JSON_KEYS),
@@ -32,10 +56,10 @@ export const useLoadState = ({
         canvasHistory.current = [currentState];
         setHistoryIndex(0);
         autoZoom();
-      });
+      }, reviver);
       initialized.current = true;
     }
-  }, 
+  },
   [
     canvas,
     autoZoom,
