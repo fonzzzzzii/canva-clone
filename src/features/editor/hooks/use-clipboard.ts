@@ -18,53 +18,61 @@ export const useClipboard = ({
 }: UseClipboardProps) => {
   const clipboard = useRef<ClipboardData | any>(null);
 
-  const copy = useCallback(() => {
-    const activeObject = canvas?.getActiveObject();
-    if (!activeObject) return;
-
-    // Check if copying an ImageFrame - need to also copy linked image
-    if (activeObject.type === "imageFrame") {
-      const frame = activeObject as ImageFrame;
-      const linkedImage = frame.getLinkedImage(canvas!) as FramedImage | null;
-
-      if (linkedImage) {
-        // Clone both frame and image
-        frame.clone((clonedFrame: any) => {
-          linkedImage.clone((clonedImage: any) => {
-            clipboard.current = {
-              frame: clonedFrame,
-              image: clonedImage,
-              isFramePair: true,
-            };
-          });
-        });
+  const copy = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      const activeObject = canvas?.getActiveObject();
+      if (!activeObject) {
+        resolve();
         return;
       }
-    }
 
-    // Check if copying a FramedImage - need to also copy linked frame
-    if (activeObject.type === "framedImage") {
-      const image = activeObject as FramedImage;
-      const linkedFrame = image.getLinkedFrame(canvas!);
+      // Check if copying an ImageFrame - need to also copy linked image
+      if (activeObject.type === "imageFrame") {
+        const frame = activeObject as ImageFrame;
+        const linkedImage = frame.getLinkedImage(canvas!) as FramedImage | null;
 
-      if (linkedFrame) {
-        // Clone both frame and image
-        linkedFrame.clone((clonedFrame: any) => {
-          image.clone((clonedImage: any) => {
-            clipboard.current = {
-              frame: clonedFrame,
-              image: clonedImage,
-              isFramePair: true,
-            };
+        if (linkedImage) {
+          // Clone both frame and image
+          frame.clone((clonedFrame: any) => {
+            linkedImage.clone((clonedImage: any) => {
+              clipboard.current = {
+                frame: clonedFrame,
+                image: clonedImage,
+                isFramePair: true,
+              };
+              resolve();
+            });
           });
-        });
-        return;
+          return;
+        }
       }
-    }
 
-    // Default behavior for other objects
-    activeObject.clone((cloned: any) => {
-      clipboard.current = cloned;
+      // Check if copying a FramedImage - need to also copy linked frame
+      if (activeObject.type === "framedImage") {
+        const image = activeObject as FramedImage;
+        const linkedFrame = image.getLinkedFrame(canvas!);
+
+        if (linkedFrame) {
+          // Clone both frame and image
+          linkedFrame.clone((clonedFrame: any) => {
+            image.clone((clonedImage: any) => {
+              clipboard.current = {
+                frame: clonedFrame,
+                image: clonedImage,
+                isFramePair: true,
+              };
+              resolve();
+            });
+          });
+          return;
+        }
+      }
+
+      // Default behavior for other objects
+      activeObject.clone((cloned: any) => {
+        clipboard.current = cloned;
+        resolve();
+      });
     });
   }, [canvas]);
 

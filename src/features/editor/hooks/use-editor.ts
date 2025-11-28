@@ -2321,8 +2321,8 @@ const buildEditor = ({
     },
 
     // Duplicate
-    duplicate: () => {
-      copy();
+    duplicate: async () => {
+      await copy();
       paste();
     },
   };
