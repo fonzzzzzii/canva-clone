@@ -63,6 +63,7 @@ export const Editor = ({ initialData }: EditorProps) => {
 
   const [activeTool, setActiveTool] = useState<ActiveTool>("select");
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
+  const [hoveredFrame, setHoveredFrame] = useState<fabric.Object | null>(null);
 
   // Parse uploaded images from database (stored as JSON string of ImageMetadata[])
   const [uploadedImages, setUploadedImages] = useState<ImageMetadata[]>(() => {
@@ -297,14 +298,61 @@ export const Editor = ({ initialData }: EditorProps) => {
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = "copy";
+
+              // Check if hovering over a frame
+              if (editor?.canvas) {
+                const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
+                const objects = editor.canvas.getObjects();
+
+                let foundFrame: fabric.Object | null = null;
+                // Check from top to bottom (reverse order)
+                for (let i = objects.length - 1; i >= 0; i--) {
+                  const obj = objects[i];
+                  if (obj.type === "imageFrame" && obj.containsPoint(new fabric.Point(point.x, point.y))) {
+                    foundFrame = obj;
+                    break;
+                  }
+                }
+
+                // Update hovered frame and visual feedback
+                if (foundFrame !== hoveredFrame) {
+                  // Remove highlight from previous frame
+                  if (hoveredFrame) {
+                    hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+                  }
+                  // Add highlight to new frame
+                  if (foundFrame) {
+                    foundFrame.set({ stroke: "#3b82f6", strokeWidth: 3 });
+                  }
+                  setHoveredFrame(foundFrame);
+                  editor.canvas.requestRenderAll();
+                }
+              }
+            }}
+            onDragLeave={(e) => {
+              // Clear highlight when leaving the canvas area
+              if (hoveredFrame && editor?.canvas) {
+                hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+                setHoveredFrame(null);
+                editor.canvas.requestRenderAll();
+              }
             }}
             onDrop={(e) => {
               e.preventDefault();
               const imageUrl = e.dataTransfer.getData("image-url");
               if (imageUrl && editor?.canvas) {
-                // Convert to canvas coordinates (accounting for zoom/pan)
-                const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
-                editor.addImage(imageUrl, { left: point.x, top: point.y });
+                // Clear highlight
+                if (hoveredFrame) {
+                  hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+                  // Replace the frame's image
+                  editor.replaceFrameImage(hoveredFrame, imageUrl);
+                  setHoveredFrame(null);
+                } else {
+                  // Add new image at drop position
+                  const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
+                  editor.addImage(imageUrl, { left: point.x, top: point.y });
+                }
+                editor.canvas.requestRenderAll();
               }
             }}
           >

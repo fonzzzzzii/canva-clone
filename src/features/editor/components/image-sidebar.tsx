@@ -9,6 +9,7 @@ import {
   useSensors,
   DragEndEvent,
   DragStartEvent,
+  DragMoveEvent,
   DragOverlay,
 } from "@dnd-kit/core";
 import {
@@ -127,7 +128,21 @@ export const ImageSidebar = ({
 }: ImageSidebarProps) => {
   const [sortBy, setSortBy] = useState<SortBy>("custom");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [hoveredFrame, setHoveredFrame] = useState<any>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Track mouse position globally during drag
+  useEffect(() => {
+    if (!activeId) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePositionRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [activeId]);
 
   // Drag and drop sensors for reordering
   const sensors = useSensors(
@@ -145,40 +160,118 @@ export const ImageSidebar = ({
     setActiveId(event.active.id as string);
   };
 
+  // Helper to find frame at position using fabric's native hit testing
+  const findFrameAtPosition = (clientX: number, clientY: number) => {
+    if (!editor?.canvas) return null;
+
+    // Create a synthetic mouse event for fabric's findTarget
+    const canvasEl = editor.canvas.getElement();
+    const rect = canvasEl.getBoundingClientRect();
+
+    // Create a minimal event object that fabric.js needs
+    const syntheticEvent = {
+      clientX,
+      clientY,
+      target: canvasEl,
+      currentTarget: canvasEl,
+    } as unknown as MouseEvent;
+
+    // Use fabric's native hit testing - this is what it uses for click detection
+    const target = editor.canvas.findTarget(syntheticEvent, false);
+
+    // Return only if it's an imageFrame
+    if (target && target.type === "imageFrame") {
+      return target;
+    }
+
+    return null;
+  };
+
+  // Update frame highlight during drag
+  const handleDragMove = (event: DragMoveEvent) => {
+    if (!editor?.canvas) return;
+
+    // Use the tracked mouse position for accurate detection
+    const { x: finalX, y: finalY } = mousePositionRef.current;
+
+    // Check if we're over the canvas area
+    const canvasEl = editor.canvas.getElement();
+    const canvasRect = canvasEl.getBoundingClientRect();
+    const isOverCanvas =
+      finalX >= canvasRect.left &&
+      finalX <= canvasRect.right &&
+      finalY >= canvasRect.top &&
+      finalY <= canvasRect.bottom;
+
+    if (isOverCanvas) {
+      const foundFrame = findFrameAtPosition(finalX, finalY);
+
+      if (foundFrame !== hoveredFrame) {
+        // Remove highlight from previous frame
+        if (hoveredFrame) {
+          hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+        }
+        // Add highlight to new frame
+        if (foundFrame) {
+          foundFrame.set({ stroke: "#3b82f6", strokeWidth: 3 });
+        }
+        setHoveredFrame(foundFrame);
+        editor.canvas.requestRenderAll();
+      }
+    } else if (hoveredFrame) {
+      // Clear highlight when not over canvas
+      hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+      setHoveredFrame(null);
+      editor.canvas.requestRenderAll();
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, activatorEvent } = event;
+    const { active, over } = event;
 
-    // Get the final pointer position
-    const pointerEvent = activatorEvent as PointerEvent;
+    // Check if drag ended on the canvas
+    if (editor?.canvas) {
+      // Use the tracked mouse position for accurate drop location
+      const { x: finalX, y: finalY } = mousePositionRef.current;
 
-    // Check if drag ended outside the sidebar (dropped on canvas)
-    if (sidebarRef.current) {
-      const sidebarRect = sidebarRef.current.getBoundingClientRect();
-      const dragEndEvent = event.activatorEvent as MouseEvent;
+      // Check if we're over the canvas area
+      const canvasEl = editor.canvas.getElement();
+      const canvasRect = canvasEl.getBoundingClientRect();
+      const isOverCanvas =
+        finalX >= canvasRect.left &&
+        finalX <= canvasRect.right &&
+        finalY >= canvasRect.top &&
+        finalY <= canvasRect.bottom;
 
-      // Get the current pointer position from the delta
-      const finalX = (dragEndEvent?.clientX || 0) + (event.delta?.x || 0);
-      const finalY = (dragEndEvent?.clientY || 0) + (event.delta?.y || 0);
-
-      // If dropped outside sidebar (to the right), add to canvas
-      if (finalX > sidebarRect.right) {
+      if (isOverCanvas) {
         const draggedImage = uploadedImages.find((img) => img.id === active.id);
-        if (draggedImage && editor?.canvas) {
-          // Calculate canvas position
-          const canvasEl = editor.canvas.getElement();
-          const canvasRect = canvasEl.getBoundingClientRect();
-
-          // Convert to canvas coordinates
-          const point = editor.canvas.getPointer({
-            clientX: finalX,
-            clientY: finalY
-          } as MouseEvent);
-
-          editor.addImage(draggedImage.url, { left: point.x, top: point.y });
+        if (draggedImage) {
+          // Clear highlight
+          if (hoveredFrame) {
+            hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+            // Replace the frame's image
+            editor.replaceFrameImage(hoveredFrame, draggedImage.url);
+            setHoveredFrame(null);
+          } else {
+            // Convert to canvas coordinates and add new image
+            const point = editor.canvas.getPointer({
+              clientX: finalX,
+              clientY: finalY
+            } as MouseEvent);
+            editor.addImage(draggedImage.url, { left: point.x, top: point.y });
+          }
+          editor.canvas.requestRenderAll();
         }
         setActiveId(null);
         return;
       }
+    }
+
+    // Clear any lingering highlight
+    if (hoveredFrame && editor?.canvas) {
+      hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+      setHoveredFrame(null);
+      editor.canvas.requestRenderAll();
     }
 
     // Normal reorder within sidebar
@@ -195,6 +288,12 @@ export const ImageSidebar = ({
   };
 
   const handleDragCancel = () => {
+    // Clear any highlight
+    if (hoveredFrame && editor?.canvas) {
+      hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
+      setHoveredFrame(null);
+      editor.canvas.requestRenderAll();
+    }
     setActiveId(null);
   };
 
@@ -289,6 +388,7 @@ export const ImageSidebar = ({
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
               onDragEnd={handleDragEnd}
               onDragCancel={handleDragCancel}
             >

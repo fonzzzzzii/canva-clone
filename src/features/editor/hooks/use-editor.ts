@@ -468,6 +468,65 @@ const buildEditor = ({
         },
       );
     },
+    replaceFrameImage: (frame: ImageFrame, newImageUrl: string) => {
+      const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+
+      fabric.Image.fromURL(
+        newImageUrl,
+        (loadedImage) => {
+          const imgWidth = loadedImage.width || 1;
+          const imgHeight = loadedImage.height || 1;
+
+          // Get frame dimensions
+          const frameWidth = (frame.width || 100) * (frame.scaleX || 1);
+          const frameHeight = (frame.height || 100) * (frame.scaleY || 1);
+
+          // Calculate scale to cover the frame
+          const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight);
+
+          if (linkedImage) {
+            // Remove the old image
+            canvas.remove(linkedImage);
+          }
+
+          // Generate new image ID
+          const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // Create new framed image
+          const element = (loadedImage as any).getElement();
+          const newFramedImage = new FramedImage(element, {
+            id: newImageId,
+            linkedFrameId: frame.id,
+            imageUrl: newImageUrl,
+            left: frame.left,
+            top: frame.top,
+            originX: "center",
+            originY: "center",
+          });
+
+          // Scale image to cover the frame
+          newFramedImage.scale(scale);
+          newFramedImage.customScaleX = scale;
+          newFramedImage.customScaleY = scale;
+
+          // Update frame's linked image ID
+          frame.linkedImageId = newImageId;
+
+          // Apply clipping
+          newFramedImage.applyFrameClip(frame);
+
+          // Add image behind the frame
+          const frameIndex = canvas.getObjects().indexOf(frame);
+          canvas.insertAt(newFramedImage, frameIndex, false);
+
+          canvas.requestRenderAll();
+          save();
+        },
+        {
+          crossOrigin: "anonymous",
+        }
+      );
+    },
     delete: () => {
       const objectsToRemove: fabric.Object[] = [];
 

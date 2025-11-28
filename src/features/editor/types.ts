@@ -261,6 +261,7 @@ export interface Editor {
   onPaste: () => void;
   changeImageFilter: (value: string) => void;
   addImage: (value: string, options?: { left?: number; top?: number }) => void;
+  replaceFrameImage: (frame: any, newImageUrl: string) => void;
   delete: () => void;
   changeFontSize: (value: number) => void;
   getActiveFontSize: () => number;
