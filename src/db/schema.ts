@@ -107,6 +107,7 @@ export const projects = pgTable("project", {
   width: integer("width").notNull(),
   pageCount: integer("pageCount").notNull().default(1),
   thumbnailUrl: text("thumbnailUrl"),
+  uploadedImages: text("uploadedImages"), // JSON array of image URLs for the project library
   isTemplate: boolean("isTemplate"),
   isPro: boolean("isPro"),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull(),

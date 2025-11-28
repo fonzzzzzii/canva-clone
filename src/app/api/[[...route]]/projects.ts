@@ -100,6 +100,7 @@ const app = new Hono()
           width: project.width,
           height: project.height,
           pageCount: project.pageCount || 1,
+          uploadedImages: project.uploadedImages,
           userId: auth.token.id,
           createdAt: new Date(),
           updatedAt: new Date(),

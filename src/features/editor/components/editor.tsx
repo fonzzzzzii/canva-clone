@@ -64,6 +64,24 @@ export const Editor = ({ initialData }: EditorProps) => {
   const [activeTool, setActiveTool] = useState<ActiveTool>("select");
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
 
+  // Parse uploaded images from database (stored as JSON string)
+  const [uploadedImages, setUploadedImages] = useState<string[]>(() => {
+    if (initialData.uploadedImages) {
+      try {
+        return JSON.parse(initialData.uploadedImages);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Handle uploaded images changes - save to database
+  const onUploadedImagesChange = useCallback((images: string[]) => {
+    setUploadedImages(images);
+    mutate({ uploadedImages: JSON.stringify(images) });
+  }, [mutate]);
+
   const onClearSelection = useCallback(() => {
     if (selectionDependentTools.includes(activeTool)) {
       setActiveTool("select");
@@ -213,6 +231,8 @@ export const Editor = ({ initialData }: EditorProps) => {
           editor={editor}
           activeTool={activeTool}
           onChangeActiveTool={onChangeActiveTool}
+          uploadedImages={uploadedImages}
+          onUploadedImagesChange={onUploadedImagesChange}
         />
         <ImageFrameSidebar
           editor={editor}
@@ -256,7 +276,21 @@ export const Editor = ({ initialData }: EditorProps) => {
             onChangeActiveTool={onChangeActiveTool}
             key={`toolbar-${editor?.selectedObjects?.length || 0}-${editor?.selectedObjects?.[0]?.type || 'none'}`}
           />
-          <div className="flex-1 h-[calc(100%-124px)] bg-muted relative" ref={containerRef}>
+          <div
+            className="flex-1 h-[calc(100%-124px)] bg-muted relative"
+            ref={containerRef}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const imageUrl = e.dataTransfer.getData("image-url");
+              if (imageUrl && editor) {
+                editor.addImage(imageUrl);
+              }
+            }}
+          >
             <canvas ref={canvasRef} />
             {container && editor && (
               <>

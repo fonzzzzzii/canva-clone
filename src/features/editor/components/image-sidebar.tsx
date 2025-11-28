@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { AlertTriangle, Loader, Upload } from "lucide-react";
+import { Upload, X } from "lucide-react";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
@@ -13,37 +12,28 @@ interface ImageSidebarProps {
   editor: Editor | undefined;
   activeTool: ActiveTool;
   onChangeActiveTool: (tool: ActiveTool) => void;
+  uploadedImages: string[];
+  onUploadedImagesChange: (images: string[]) => void;
 }
 
-export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSidebarProps) => {
-  // Get images from the canvas (both regular images and FramedImages)
-  const images = useMemo(() => {
-    if (!editor?.canvas) return [];
-
-    const allObjects = editor.canvas.getObjects();
-    const imageUrls: string[] = [];
-
-    allObjects.forEach((obj: any) => {
-      // Handle regular fabric.Image objects
-      if (obj.type === "image") {
-        const url = obj.getSrc?.() || obj.src || obj._element?.src;
-        if (url) imageUrls.push(url);
-      }
-      // Handle FramedImage objects (type === "framedImage" or groups with imageUrl property)
-      else if (obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) {
-        imageUrls.push(obj.imageUrl);
-      }
-    });
-
-    // Return unique URLs while preserving order
-    return Array.from(new Set(imageUrls)).map((url, index) => ({
-      id: `image-${index}`,
-      url: url as string,
-    }));
-  }, [editor?.canvas, editor?.canvas?.getObjects()]);
-
+export const ImageSidebar = ({
+  editor,
+  activeTool,
+  onChangeActiveTool,
+  uploadedImages,
+  onUploadedImagesChange,
+}: ImageSidebarProps) => {
   const onClose = () => {
     onChangeActiveTool("select");
+  };
+
+  const handleDelete = (urlToDelete: string) => {
+    onUploadedImagesChange(uploadedImages.filter((url) => url !== urlToDelete));
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, imageUrl: string) => {
+    e.dataTransfer.setData("image-url", imageUrl);
+    e.dataTransfer.effectAllowed = "copy";
   };
 
   return (
@@ -53,7 +43,7 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
         activeTool === "images" ? "visible" : "hidden"
       )}
     >
-      <ToolSidebarHeader title="Images" description="Add images to your canvas" />
+      <ToolSidebarHeader title="Images" description="Drag images to your canvas" />
       <div className="p-4 border-b">
         <UploadButton
           appearance={{
@@ -65,37 +55,47 @@ export const ImageSidebar = ({ editor, activeTool, onChangeActiveTool }: ImageSi
           }}
           endpoint="imageUploader"
           onClientUploadComplete={(res) => {
-            editor?.addImage(res[0].url);
+            // Process ALL uploaded images (fixes multi-upload bug)
+            const newUrls = res.map((file) => file.url);
+            onUploadedImagesChange([...uploadedImages, ...newUrls]);
           }}
         />
       </div>
       <ScrollArea>
         <div className="p-4">
-          {images.length === 0 ? (
+          {uploadedImages.length === 0 ? (
             <div className="flex flex-col gap-y-4 items-center justify-center py-8">
               <Upload className="size-8 text-muted-foreground" />
               <p className="text-muted-foreground text-sm text-center">
-                No images in this project yet.<br />Upload an image to get started.
+                No images uploaded yet.<br />Upload an image to get started.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {images.map((image) => {
-                return (
+              {uploadedImages.map((url, index) => (
+                <div
+                  key={`image-${index}-${url.slice(-20)}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, url)}
+                  className="relative w-full h-[100px] group cursor-grab active:cursor-grabbing bg-muted rounded-sm overflow-hidden border hover:ring-2 hover:ring-primary/50 transition"
+                >
+                  <img
+                    src={url}
+                    alt="Uploaded image"
+                    className="object-cover w-full h-full pointer-events-none"
+                    loading="lazy"
+                  />
                   <button
-                    onClick={() => editor?.addImage(image.url)}
-                    key={image.id}
-                    className="relative w-full h-[100px] group hover:opacity-75 transition bg-muted rounded-sm overflow-hidden border"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(url);
+                    }}
+                    className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <img
-                      src={image.url}
-                      alt="Project image"
-                      className="object-cover w-full h-full"
-                      loading="lazy"
-                    />
+                    <X className="size-3" />
                   </button>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
