@@ -909,10 +909,73 @@ const buildEditor = ({
       }
     },
 
-    alignLeft: () => {
+    alignLeft: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page - works with single or multiple objects
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceBounds = workspace.getBoundingRect();
+        const targetLeft = workspaceBounds.left;
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute positions and bounds BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const width = (obj.width || 0) * (obj.scaleX || 1);
+            const absoluteLeft = selectionCenter.x + (obj.left || 0);
+            const boundsLeft = absoluteLeft - width / 2;
+            return { obj, absoluteLeft, boundsLeft, width };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, boundsLeft }) => {
+            const offset = targetLeft - boundsLeft;
+            obj.set({ left: (obj.left || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const bounds = activeObj.getBoundingRect();
+          const offset = targetLeft - bounds.left;
+          activeObj.set({ left: (activeObj.left || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other (requires multiple selection)
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -921,66 +984,101 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
-          // Calculate absolute position from selection center + relative offset
           const selectionCenter = selection.getCenterPoint();
           const absoluteLeft = selectionCenter.x + (obj.left || 0);
           const absoluteTop = selectionCenter.y + (obj.top || 0);
           const width = (obj.width || 0) * (obj.scaleX || 1);
-          const height = (obj.height || 0) * (obj.scaleY || 1);
 
           return {
             obj,
             absoluteLeft,
             absoluteTop,
-            // For center-origin objects, bounds start at center - half width
             boundsLeft: absoluteLeft - width / 2,
-            boundsRight: absoluteLeft + width / 2,
-            width,
-            height,
           };
         });
 
-        // Find leftmost edge
         const leftmost = Math.min(...objectsWithBounds.map((o) => o.boundsLeft));
 
-        // Break apart selection
         canvas.discardActiveObject();
 
-        // Align all objects to leftmost edge
         objectsWithBounds.forEach(({ obj, boundsLeft }) => {
-          // Calculate how much to move (keeping center origin in mind)
           const offset = leftmost - boundsLeft;
           obj.set({ left: (obj.left || 0) + offset });
           obj.setCoords();
-
-          // Sync linked image
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
-        // Reselect the objects
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
       }
 
       canvas.requestRenderAll();
       save();
     },
-    alignCenterHorizontal: () => {
+    alignCenterHorizontal: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page center
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceCenter = workspace.getCenterPoint();
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute center positions BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const absoluteCenterX = selectionCenter.x + (obj.left || 0);
+            return { obj, absoluteCenterX };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, absoluteCenterX }) => {
+            const offset = workspaceCenter.x - absoluteCenterX;
+            obj.set({ left: (obj.left || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const objCenter = activeObj.getCenterPoint();
+          const offset = workspaceCenter.x - objCenter.x;
+          activeObj.set({ left: (activeObj.left || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -989,24 +1087,19 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
           const selectionCenter = selection.getCenterPoint();
           const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
           const width = (obj.width || 0) * (obj.scaleX || 1);
 
           return {
             obj,
-            absoluteLeft,
-            absoluteTop,
+            centerX: absoluteLeft,
             boundsLeft: absoluteLeft - width / 2,
             boundsRight: absoluteLeft + width / 2,
-            centerX: absoluteLeft,
           };
         });
 
-        // Find center of all objects
         const leftmost = Math.min(...objectsWithBounds.map((o) => o.boundsLeft));
         const rightmost = Math.max(...objectsWithBounds.map((o) => o.boundsRight));
         const targetCenterX = (leftmost + rightmost) / 2;
@@ -1017,19 +1110,7 @@ const buildEditor = ({
           const offset = targetCenterX - centerX;
           obj.set({ left: (obj.left || 0) + offset });
           obj.setCoords();
-
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
@@ -1038,10 +1119,73 @@ const buildEditor = ({
       canvas.requestRenderAll();
       save();
     },
-    alignRight: () => {
+    alignRight: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceBounds = workspace.getBoundingRect();
+        const targetRight = workspaceBounds.left + workspaceBounds.width;
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute positions and bounds BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const width = (obj.width || 0) * (obj.scaleX || 1);
+            const absoluteLeft = selectionCenter.x + (obj.left || 0);
+            const boundsRight = absoluteLeft + width / 2;
+            return { obj, boundsRight };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, boundsRight }) => {
+            const offset = targetRight - boundsRight;
+            obj.set({ left: (obj.left || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const bounds = activeObj.getBoundingRect();
+          const offset = targetRight - (bounds.left + bounds.width);
+          activeObj.set({ left: (activeObj.left || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -1050,22 +1194,17 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
           const selectionCenter = selection.getCenterPoint();
           const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
           const width = (obj.width || 0) * (obj.scaleX || 1);
 
           return {
             obj,
-            absoluteLeft,
-            absoluteTop,
             boundsRight: absoluteLeft + width / 2,
           };
         });
 
-        // Find rightmost edge
         const rightmost = Math.max(...objectsWithBounds.map((o) => o.boundsRight));
 
         canvas.discardActiveObject();
@@ -1074,19 +1213,7 @@ const buildEditor = ({
           const offset = rightmost - boundsRight;
           obj.set({ left: (obj.left || 0) + offset });
           obj.setCoords();
-
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
@@ -1095,10 +1222,73 @@ const buildEditor = ({
       canvas.requestRenderAll();
       save();
     },
-    alignTop: () => {
+    alignTop: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceBounds = workspace.getBoundingRect();
+        const targetTop = workspaceBounds.top;
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute positions and bounds BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const height = (obj.height || 0) * (obj.scaleY || 1);
+            const absoluteTop = selectionCenter.y + (obj.top || 0);
+            const boundsTop = absoluteTop - height / 2;
+            return { obj, boundsTop };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, boundsTop }) => {
+            const offset = targetTop - boundsTop;
+            obj.set({ top: (obj.top || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const bounds = activeObj.getBoundingRect();
+          const offset = targetTop - bounds.top;
+          activeObj.set({ top: (activeObj.top || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -1107,22 +1297,17 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
           const selectionCenter = selection.getCenterPoint();
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
           const absoluteTop = selectionCenter.y + (obj.top || 0);
           const height = (obj.height || 0) * (obj.scaleY || 1);
 
           return {
             obj,
-            absoluteLeft,
-            absoluteTop,
             boundsTop: absoluteTop - height / 2,
           };
         });
 
-        // Find topmost edge
         const topmost = Math.min(...objectsWithBounds.map((o) => o.boundsTop));
 
         canvas.discardActiveObject();
@@ -1131,19 +1316,7 @@ const buildEditor = ({
           const offset = topmost - boundsTop;
           obj.set({ top: (obj.top || 0) + offset });
           obj.setCoords();
-
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
@@ -1152,10 +1325,70 @@ const buildEditor = ({
       canvas.requestRenderAll();
       save();
     },
-    alignCenterVertical: () => {
+    alignCenterVertical: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page center
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceCenter = workspace.getCenterPoint();
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute center positions BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const absoluteCenterY = selectionCenter.y + (obj.top || 0);
+            return { obj, absoluteCenterY };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, absoluteCenterY }) => {
+            const offset = workspaceCenter.y - absoluteCenterY;
+            obj.set({ top: (obj.top || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const objCenter = activeObj.getCenterPoint();
+          const offset = workspaceCenter.y - objCenter.y;
+          activeObj.set({ top: (activeObj.top || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -1164,24 +1397,19 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
           const selectionCenter = selection.getCenterPoint();
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
           const absoluteTop = selectionCenter.y + (obj.top || 0);
           const height = (obj.height || 0) * (obj.scaleY || 1);
 
           return {
             obj,
-            absoluteLeft,
-            absoluteTop,
+            centerY: absoluteTop,
             boundsTop: absoluteTop - height / 2,
             boundsBottom: absoluteTop + height / 2,
-            centerY: absoluteTop,
           };
         });
 
-        // Find center of all objects
         const topmost = Math.min(...objectsWithBounds.map((o) => o.boundsTop));
         const bottommost = Math.max(...objectsWithBounds.map((o) => o.boundsBottom));
         const targetCenterY = (topmost + bottommost) / 2;
@@ -1192,19 +1420,7 @@ const buildEditor = ({
           const offset = targetCenterY - centerY;
           obj.set({ top: (obj.top || 0) + offset });
           obj.setCoords();
-
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
@@ -1213,10 +1429,73 @@ const buildEditor = ({
       canvas.requestRenderAll();
       save();
     },
-    alignBottom: () => {
+    alignBottom: (alignToPage = false) => {
       const activeObj = canvas.getActiveObject();
       if (!activeObj) return;
 
+      const syncLinkedImage = (obj: fabric.Object) => {
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const image = frame.getLinkedImage(canvas) as FramedImage | null;
+          if (image && !image.isInEditMode) {
+            image.set({
+              left: (frame.left || 0) + image.offsetX,
+              top: (frame.top || 0) + image.offsetY,
+            });
+            image.applyFrameClip(frame);
+            image.setCoords();
+          }
+        }
+      };
+
+      // Align to page
+      if (alignToPage) {
+        const workspace = getFocusedWorkspace();
+        if (!workspace) return;
+
+        const workspaceBounds = workspace.getBoundingRect();
+        const targetBottom = workspaceBounds.top + workspaceBounds.height;
+
+        if (activeObj.type === "activeSelection") {
+          const selection = activeObj as fabric.ActiveSelection;
+          const selectionCenter = selection.getCenterPoint();
+          const objects = selection.getObjects().filter(
+            (obj) => obj.name !== "clip" && obj.type !== "framedImage"
+          );
+
+          // Calculate absolute positions and bounds BEFORE discarding
+          const objectsData = objects.map((obj) => {
+            const height = (obj.height || 0) * (obj.scaleY || 1);
+            const absoluteTop = selectionCenter.y + (obj.top || 0);
+            const boundsBottom = absoluteTop + height / 2;
+            return { obj, boundsBottom };
+          });
+
+          canvas.discardActiveObject();
+
+          objectsData.forEach(({ obj, boundsBottom }) => {
+            const offset = targetBottom - boundsBottom;
+            obj.set({ top: (obj.top || 0) + offset });
+            obj.setCoords();
+            syncLinkedImage(obj);
+          });
+
+          canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
+        } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
+          activeObj.setCoords();
+          const bounds = activeObj.getBoundingRect();
+          const offset = targetBottom - (bounds.top + bounds.height);
+          activeObj.set({ top: (activeObj.top || 0) + offset });
+          activeObj.setCoords();
+          syncLinkedImage(activeObj);
+        }
+
+        canvas.requestRenderAll();
+        save();
+        return;
+      }
+
+      // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
         const objects = selection.getObjects().filter(
@@ -1225,22 +1504,17 @@ const buildEditor = ({
 
         if (objects.length < 2) return;
 
-        // Get absolute positions while still in selection
         const objectsWithBounds = objects.map((obj) => {
           const selectionCenter = selection.getCenterPoint();
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
           const absoluteTop = selectionCenter.y + (obj.top || 0);
           const height = (obj.height || 0) * (obj.scaleY || 1);
 
           return {
             obj,
-            absoluteLeft,
-            absoluteTop,
             boundsBottom: absoluteTop + height / 2,
           };
         });
 
-        // Find bottommost edge
         const bottommost = Math.max(...objectsWithBounds.map((o) => o.boundsBottom));
 
         canvas.discardActiveObject();
@@ -1249,19 +1523,7 @@ const buildEditor = ({
           const offset = bottommost - boundsBottom;
           obj.set({ top: (obj.top || 0) + offset });
           obj.setCoords();
-
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
-            const image = frame.getLinkedImage(canvas) as FramedImage | null;
-            if (image && !image.isInEditMode) {
-              image.set({
-                left: (frame.left || 0) + image.offsetX,
-                top: (frame.top || 0) + image.offsetY,
-              });
-              image.applyFrameClip(frame);
-              image.setCoords();
-            }
-          }
+          syncLinkedImage(obj);
         });
 
         canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));

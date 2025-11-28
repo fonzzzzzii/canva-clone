@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-import { 
-  FaBold, 
-  FaItalic, 
-  FaStrikethrough, 
+import {
+  FaBold,
+  FaItalic,
+  FaStrikethrough,
   FaUnderline
 } from "react-icons/fa";
 import { TbColorFilter } from "react-icons/tb";
@@ -27,8 +27,10 @@ import {
   AlignEndVertical,
   AlignHorizontalSpaceBetween,
   AlignVerticalSpaceBetween,
-  Frame
+  Frame,
+  Square
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { isTextType } from "@/features/editor/utils";
 import { FontSizeInput } from "@/features/editor/components/font-size-input";
@@ -75,6 +77,15 @@ export const Toolbar = ({
     textAlign: initialTextAlign,
     fontSize: initialFontSize,
   });
+
+  // Align to page is auto-enabled when single object selected
+  const selectedCount = editor?.selectedObjects?.length || 0;
+  const [alignToPage, setAlignToPage] = useState(selectedCount === 1);
+
+  // Update alignToPage when selection changes
+  useEffect(() => {
+    setAlignToPage(selectedCount === 1);
+  }, [selectedCount]);
 
   const selectedObject = editor?.selectedObjects[0];
   const selectedObjectType = editor?.selectedObjects[0]?.type;
@@ -474,46 +485,27 @@ export const Toolbar = ({
           </Button>
         </Hint>
       </div>
-      {editor?.selectedObjects.length > 1 && (
+      {selectedCount >= 1 && (
         <>
           <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="flex items-center h-full justify-center gap-1 px-2">
+            <Checkbox
+              id="align-to-page"
+              checked={alignToPage}
+              onCheckedChange={(checked) => setAlignToPage(checked === true)}
+              className="size-3.5"
+            />
+            <label
+              htmlFor="align-to-page"
+              className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+            >
+              To page
+            </label>
+          </div>
           <div className="flex items-center h-full justify-center">
             <Hint label="Align left" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignLeft()}
-                size="icon"
-                variant="ghost"
-              >
-                <AlignStartHorizontal className="size-4" />
-              </Button>
-            </Hint>
-          </div>
-          <div className="flex items-center h-full justify-center">
-            <Hint label="Align center horizontal" side="bottom" sideOffset={5}>
-              <Button
-                onClick={() => editor?.alignCenterHorizontal()}
-                size="icon"
-                variant="ghost"
-              >
-                <AlignCenterHorizontal className="size-4" />
-              </Button>
-            </Hint>
-          </div>
-          <div className="flex items-center h-full justify-center">
-            <Hint label="Align right" side="bottom" sideOffset={5}>
-              <Button
-                onClick={() => editor?.alignRight()}
-                size="icon"
-                variant="ghost"
-              >
-                <AlignEndHorizontal className="size-4" />
-              </Button>
-            </Hint>
-          </div>
-          <div className="flex items-center h-full justify-center">
-            <Hint label="Align top" side="bottom" sideOffset={5}>
-              <Button
-                onClick={() => editor?.alignTop()}
+                onClick={() => editor?.alignLeft(alignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -522,9 +514,9 @@ export const Toolbar = ({
             </Hint>
           </div>
           <div className="flex items-center h-full justify-center">
-            <Hint label="Align middle vertical" side="bottom" sideOffset={5}>
+            <Hint label="Align center horizontal" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignCenterVertical()}
+                onClick={() => editor?.alignCenterHorizontal(alignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -533,9 +525,9 @@ export const Toolbar = ({
             </Hint>
           </div>
           <div className="flex items-center h-full justify-center">
-            <Hint label="Align bottom" side="bottom" sideOffset={5}>
+            <Hint label="Align right" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignBottom()}
+                onClick={() => editor?.alignRight(alignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -543,7 +535,40 @@ export const Toolbar = ({
               </Button>
             </Hint>
           </div>
-          {editor?.selectedObjects.length > 2 && (
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align top" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignTop(alignToPage)}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignStartHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align middle vertical" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignCenterVertical(alignToPage)}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignCenterHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          <div className="flex items-center h-full justify-center">
+            <Hint label="Align bottom" side="bottom" sideOffset={5}>
+              <Button
+                onClick={() => editor?.alignBottom(alignToPage)}
+                size="icon"
+                variant="ghost"
+              >
+                <AlignEndHorizontal className="size-4" />
+              </Button>
+            </Hint>
+          </div>
+          {selectedCount > 2 && !alignToPage && (
             <>
               <div className="w-px h-6 bg-gray-300 mx-1" />
               <div className="flex items-center h-full justify-center">

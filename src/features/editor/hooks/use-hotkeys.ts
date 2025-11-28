@@ -147,26 +147,71 @@ export const useHotkeys = ({
 
       event.preventDefault();
 
+      // Calculate delta based on arrow key
+      let deltaX = 0;
+      let deltaY = 0;
+      switch (event.key) {
+        case "ArrowUp":
+          deltaY = -gridSize;
+          break;
+        case "ArrowDown":
+          deltaY = gridSize;
+          break;
+        case "ArrowLeft":
+          deltaX = -gridSize;
+          break;
+        case "ArrowRight":
+          deltaX = gridSize;
+          break;
+      }
+
+      // Track which objects we've already moved (to avoid moving linked pairs twice)
+      const movedObjects = new Set<fabric.Object>();
+
       activeObjects.forEach((obj) => {
+        if (movedObjects.has(obj)) return;
+
         const currentLeft = obj.left || 0;
         const currentTop = obj.top || 0;
 
-        switch (event.key) {
-          case "ArrowUp":
-            obj.set({ top: currentTop - gridSize });
-            break;
-          case "ArrowDown":
-            obj.set({ top: currentTop + gridSize });
-            break;
-          case "ArrowLeft":
-            obj.set({ left: currentLeft - gridSize });
-            break;
-          case "ArrowRight":
-            obj.set({ left: currentLeft + gridSize });
-            break;
+        // Move the object
+        obj.set({
+          left: currentLeft + deltaX,
+          top: currentTop + deltaY,
+        });
+        obj.setCoords();
+        movedObjects.add(obj);
+
+        // If it's an ImageFrame, also move and update its linked image
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage && !movedObjects.has(linkedImage)) {
+            linkedImage.set({
+              left: (linkedImage.left || 0) + deltaX,
+              top: (linkedImage.top || 0) + deltaY,
+            });
+            linkedImage.applyFrameClip(frame);
+            linkedImage.setCoords();
+            movedObjects.add(linkedImage);
+          }
         }
 
-        obj.setCoords();
+        // If it's a FramedImage, also move its linked frame
+        if (obj.type === "framedImage") {
+          const image = obj as FramedImage;
+          const linkedFrame = image.getLinkedFrame(canvas);
+          if (linkedFrame && !movedObjects.has(linkedFrame)) {
+            linkedFrame.set({
+              left: (linkedFrame.left || 0) + deltaX,
+              top: (linkedFrame.top || 0) + deltaY,
+            });
+            linkedFrame.setCoords();
+            movedObjects.add(linkedFrame);
+            // Update clip path after frame moved
+            image.applyFrameClip(linkedFrame);
+          }
+        }
       });
 
       canvas.requestRenderAll();

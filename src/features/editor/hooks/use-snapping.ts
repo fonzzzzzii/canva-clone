@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { fabric } from "fabric";
 import {
   calculateGridSnap,
@@ -23,6 +23,46 @@ export const useSnapping = ({
   save,
   imageEditMode = false,
 }: UseSnappingProps) => {
+  // Track shift key state and initial drag position
+  const shiftKeyRef = useRef(false);
+  const dragStartRef = useRef<{ left: number; top: number } | null>(null);
+
+  // Track snapped state to prevent jitter - "sticky" snapping
+  // Key insight: Store the actual snapped position, not just snap line info
+  // This lets us compare mouse position to stored position directly
+  const snappedStateRef = useRef<{
+    targetId: number | string | undefined;
+    // Store the actual snapped left/top values
+    snappedLeft: number | null;
+    snappedTop: number | null;
+    // Store snap line info for display
+    xSnapLine: number | null;
+    ySnapLine: number | null;
+  } | null>(null);
+
+  // Track shift key state globally
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Shift") {
+        shiftKeyRef.current = true;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Shift") {
+        shiftKeyRef.current = false;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   useEffect(() => {
     if (!canvas) return;
 
@@ -70,6 +110,23 @@ export const useSnapping = ({
       return closestWorkspace;
     };
 
+    // Track when dragging starts to capture initial position
+    const handleMouseDown = (e: fabric.IEvent) => {
+      const target = e.target;
+      if (target && target.name !== "clip" && !target.name?.startsWith("clip-page-")) {
+        dragStartRef.current = {
+          left: target.left || 0,
+          top: target.top || 0,
+        };
+      }
+    };
+
+    const handleMouseUp = () => {
+      dragStartRef.current = null;
+      // Clear snapped state when mouse is released
+      snappedStateRef.current = null;
+    };
+
     const handleObjectMoving = (e: fabric.IEvent) => {
       const target = e.target;
       // Skip if target is a workspace
@@ -85,14 +142,104 @@ export const useSnapping = ({
       if (!workspace) return;
 
       const snapLines: SnapLine[] = [];
+      // These start as the current mouse-driven position
       let snappedLeft = target.left || 0;
       let snappedTop = target.top || 0;
       let xSnapped = false;
       let ySnapped = false;
 
+      // Shift-key constraint: move in straight line (horizontal or vertical only)
+      if (shiftKeyRef.current && dragStartRef.current) {
+        const deltaX = Math.abs(snappedLeft - dragStartRef.current.left);
+        const deltaY = Math.abs(snappedTop - dragStartRef.current.top);
+
+        // Determine if movement is more horizontal or vertical
+        if (deltaX > deltaY) {
+          // Constrain to horizontal movement
+          snappedTop = dragStartRef.current.top;
+          ySnapped = true;
+          // Show horizontal constraint line
+          const targetBounds = target.getBoundingRect();
+          snapLines.push({
+            y: targetBounds.top + targetBounds.height / 2,
+            orientation: "horizontal",
+          });
+        } else {
+          // Constrain to vertical movement
+          snappedLeft = dragStartRef.current.left;
+          xSnapped = true;
+          // Show vertical constraint line
+          const targetBounds = target.getBoundingRect();
+          snapLines.push({
+            x: targetBounds.left + targetBounds.width / 2,
+            orientation: "vertical",
+          });
+        }
+
+        // Apply constrained position
+        target.set({
+          left: snappedLeft,
+          top: snappedTop,
+        });
+
+        onSnapLinesChange(snapLines);
+        return;
+      }
+
+      // Track if we have any edge snapping (to disable grid snapping)
+      let hasEdgeSnap = false;
+
+      // "Break out" threshold - must move further to break out of a snap than to enter one
+      const breakOutThreshold = snappingOptions.snapThreshold * 2;
+
+      // CRITICAL: Check sticky state FIRST before any calculations
+      // This prevents jitter by maintaining snapped position until user moves far enough
+      const stickyState = snappedStateRef.current;
+      const targetId = (target as any).id || target;
+      const isSameTarget = stickyState?.targetId === targetId;
+
+      if (isSameTarget && stickyState) {
+        // Check X-axis sticky state
+        if (stickyState.snappedLeft !== null && stickyState.xSnapLine !== null) {
+          const deltaFromSnap = Math.abs((target.left || 0) - stickyState.snappedLeft);
+          if (deltaFromSnap < breakOutThreshold) {
+            // MAINTAIN the snapped position - don't let mouse move it
+            snappedLeft = stickyState.snappedLeft;
+            xSnapped = true;
+            hasEdgeSnap = true;
+            snapLines.push({ x: stickyState.xSnapLine, orientation: "vertical" });
+          } else {
+            // User moved far enough - break out
+            stickyState.snappedLeft = null;
+            stickyState.xSnapLine = null;
+          }
+        }
+
+        // Check Y-axis sticky state
+        if (stickyState.snappedTop !== null && stickyState.ySnapLine !== null) {
+          const deltaFromSnap = Math.abs((target.top || 0) - stickyState.snappedTop);
+          if (deltaFromSnap < breakOutThreshold) {
+            // MAINTAIN the snapped position
+            snappedTop = stickyState.snappedTop;
+            ySnapped = true;
+            hasEdgeSnap = true;
+            snapLines.push({ y: stickyState.ySnapLine, orientation: "horizontal" });
+          } else {
+            // User moved far enough - break out
+            stickyState.snappedTop = null;
+            stickyState.ySnapLine = null;
+          }
+        }
+
+        // If both axes broke out, clear the entire state
+        if (stickyState.snappedLeft === null && stickyState.snappedTop === null) {
+          snappedStateRef.current = null;
+        }
+      }
+
       // Priority 1: Snap to Canvas center/edges (highest priority)
+      // Only check if not already sticky-snapped
       if (snappingOptions.snapToCanvas) {
-        // Use object coordinates for consistent snapping
         const targetCenter = target.getCenterPoint();
         const workspaceCenter = workspace.getCenterPoint();
         const workspaceBounds = workspace.getBoundingRect();
@@ -104,7 +251,19 @@ export const useSnapping = ({
             const offset = workspaceCenter.x - targetCenter.x;
             snappedLeft = (target.left || 0) + offset;
             xSnapped = true;
+            hasEdgeSnap = true;
             snapLines.push({ x: workspaceBounds.left + workspaceBounds.width / 2, orientation: "vertical" });
+
+            // Store snapped position
+            if (!snappedStateRef.current) {
+              snappedStateRef.current = {
+                targetId,
+                snappedLeft, snappedTop: null, xSnapLine: workspaceBounds.left + workspaceBounds.width / 2, ySnapLine: null,
+              };
+            } else {
+              snappedStateRef.current.snappedLeft = snappedLeft;
+              snappedStateRef.current.xSnapLine = workspaceBounds.left + workspaceBounds.width / 2;
+            }
           }
         }
 
@@ -115,7 +274,19 @@ export const useSnapping = ({
             const offset = workspaceCenter.y - targetCenter.y;
             snappedTop = (target.top || 0) + offset;
             ySnapped = true;
+            hasEdgeSnap = true;
             snapLines.push({ y: workspaceBounds.top + workspaceBounds.height / 2, orientation: "horizontal" });
+
+            // Store snapped position
+            if (!snappedStateRef.current) {
+              snappedStateRef.current = {
+                targetId,
+                snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: workspaceBounds.top + workspaceBounds.height / 2,
+              };
+            } else {
+              snappedStateRef.current.snappedTop = snappedTop;
+              snappedStateRef.current.ySnapLine = workspaceBounds.top + workspaceBounds.height / 2;
+            }
           }
         }
 
@@ -127,7 +298,15 @@ export const useSnapping = ({
           const offset = workspaceBounds.left - targetBounds.left;
           snappedLeft = (target.left || 0) + offset;
           xSnapped = true;
+          hasEdgeSnap = true;
           snapLines.push({ x: workspaceBounds.left, orientation: "vertical" });
+
+          if (!snappedStateRef.current) {
+            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: workspaceBounds.left, ySnapLine: null };
+          } else {
+            snappedStateRef.current.snappedLeft = snappedLeft;
+            snappedStateRef.current.xSnapLine = workspaceBounds.left;
+          }
         }
 
         // Right edge
@@ -135,7 +314,16 @@ export const useSnapping = ({
           const offset = (workspaceBounds.left + workspaceBounds.width) - (targetBounds.left + targetBounds.width);
           snappedLeft = (target.left || 0) + offset;
           xSnapped = true;
-          snapLines.push({ x: workspaceBounds.left + workspaceBounds.width, orientation: "vertical" });
+          hasEdgeSnap = true;
+          const snapX = workspaceBounds.left + workspaceBounds.width;
+          snapLines.push({ x: snapX, orientation: "vertical" });
+
+          if (!snappedStateRef.current) {
+            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: snapX, ySnapLine: null };
+          } else {
+            snappedStateRef.current.snappedLeft = snappedLeft;
+            snappedStateRef.current.xSnapLine = snapX;
+          }
         }
 
         // Top edge
@@ -143,7 +331,15 @@ export const useSnapping = ({
           const offset = workspaceBounds.top - targetBounds.top;
           snappedTop = (target.top || 0) + offset;
           ySnapped = true;
+          hasEdgeSnap = true;
           snapLines.push({ y: workspaceBounds.top, orientation: "horizontal" });
+
+          if (!snappedStateRef.current) {
+            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: workspaceBounds.top };
+          } else {
+            snappedStateRef.current.snappedTop = snappedTop;
+            snappedStateRef.current.ySnapLine = workspaceBounds.top;
+          }
         }
 
         // Bottom edge
@@ -151,52 +347,146 @@ export const useSnapping = ({
           const offset = (workspaceBounds.top + workspaceBounds.height) - (targetBounds.top + targetBounds.height);
           snappedTop = (target.top || 0) + offset;
           ySnapped = true;
-          snapLines.push({ y: workspaceBounds.top + workspaceBounds.height, orientation: "horizontal" });
+          hasEdgeSnap = true;
+          const snapY = workspaceBounds.top + workspaceBounds.height;
+          snapLines.push({ y: snapY, orientation: "horizontal" });
+
+          if (!snappedStateRef.current) {
+            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: snapY };
+          } else {
+            snappedStateRef.current.snappedTop = snappedTop;
+            snappedStateRef.current.ySnapLine = snapY;
+          }
         }
       }
 
-      // Priority 2: Snap to Objects (medium priority)
+      // Priority 2: Snap to Objects - check X and Y independently for corner snapping
+      // Only recalculate if not already sticky-snapped on that axis
       if (snappingOptions.snapToObjects) {
-        const alignmentLines = findAlignmentLines(
-          canvas,
-          target,
-          snappingOptions.snapThreshold
-        );
-
         const targetBounds = target.getBoundingRect();
+        const targetWidth = targetBounds.width;
+        const targetHeight = targetBounds.height;
 
-        // Only snap to objects if canvas snap didn't apply
-        alignmentLines.vertical.forEach((x) => {
+        const targetLeft = targetBounds.left;
+        const targetRight = targetBounds.left + targetWidth;
+        const targetTop = targetBounds.top;
+        const targetBottom = targetBounds.top + targetHeight;
+        const targetCenterX = targetBounds.left + targetWidth / 2;
+        const targetCenterY = targetBounds.top + targetHeight / 2;
+
+        // Collect all potential snap points
+        const verticalSnapPoints: Array<{
+          distance: number;
+          snapX: number;
+          offset: number;
+        }> = [];
+        const horizontalSnapPoints: Array<{
+          distance: number;
+          snapY: number;
+          offset: number;
+        }> = [];
+
+        // Check against all other objects
+        canvas.getObjects().forEach((obj) => {
+          if (obj === target || obj.name === "clip" || obj.name?.startsWith("clip-page-")) return;
+          if (obj.type === "framedImage") return; // Skip framed images
+
+          const objBounds = obj.getBoundingRect();
+          const objLeft = objBounds.left;
+          const objRight = objBounds.left + objBounds.width;
+          const objTop = objBounds.top;
+          const objBottom = objBounds.top + objBounds.height;
+          const objCenterX = objBounds.left + objBounds.width / 2;
+          const objCenterY = objBounds.top + objBounds.height / 2;
+
+          // Vertical snapping (X-axis) - only collect if not already snapped
           if (!xSnapped) {
-            const targetCenter = targetBounds.left + targetBounds.width / 2;
-            const offset = x - targetCenter;
-
-            if (Math.abs(offset) < snappingOptions.snapThreshold) {
-              snappedLeft = (target.left || 0) + offset;
-              xSnapped = true;
-              snapLines.push({ x, orientation: "vertical" });
-            }
+            verticalSnapPoints.push(
+              { distance: Math.abs(targetLeft - objLeft), snapX: objLeft, offset: objLeft - targetLeft },
+              { distance: Math.abs(targetRight - objRight), snapX: objRight, offset: objRight - targetRight },
+              { distance: Math.abs(targetLeft - objRight), snapX: objRight, offset: objRight - targetLeft },
+              { distance: Math.abs(targetRight - objLeft), snapX: objLeft, offset: objLeft - targetRight },
+              { distance: Math.abs(targetCenterX - objCenterX), snapX: objCenterX, offset: objCenterX - targetCenterX }
+            );
           }
-        });
 
-        alignmentLines.horizontal.forEach((y) => {
+          // Horizontal snapping (Y-axis) - only collect if not already snapped
           if (!ySnapped) {
-            const targetCenter = targetBounds.top + targetBounds.height / 2;
-            const offset = y - targetCenter;
-
-            if (Math.abs(offset) < snappingOptions.snapThreshold) {
-              snappedTop = (target.top || 0) + offset;
-              ySnapped = true;
-              snapLines.push({ y, orientation: "horizontal" });
-            }
+            horizontalSnapPoints.push(
+              { distance: Math.abs(targetTop - objTop), snapY: objTop, offset: objTop - targetTop },
+              { distance: Math.abs(targetBottom - objBottom), snapY: objBottom, offset: objBottom - targetBottom },
+              { distance: Math.abs(targetTop - objBottom), snapY: objBottom, offset: objBottom - targetTop },
+              { distance: Math.abs(targetBottom - objTop), snapY: objTop, offset: objTop - targetBottom },
+              { distance: Math.abs(targetCenterY - objCenterY), snapY: objCenterY, offset: objCenterY - targetCenterY }
+            );
           }
         });
+
+        // Find and apply closest vertical snap (if not already snapped)
+        if (verticalSnapPoints.length > 0 && !xSnapped) {
+          const withinThreshold = verticalSnapPoints.filter(
+            (p) => p.distance < snappingOptions.snapThreshold
+          );
+          if (withinThreshold.length > 0) {
+            const closest = withinThreshold.reduce((prev, curr) =>
+              curr.distance < prev.distance ? curr : prev
+            );
+            // Apply the exact offset to make edges flush
+            snappedLeft = (target.left || 0) + closest.offset;
+            xSnapped = true;
+            hasEdgeSnap = true;
+            snapLines.push({ x: closest.snapX, orientation: "vertical" });
+
+            // Store the snapped position for sticky state
+            if (!snappedStateRef.current) {
+              snappedStateRef.current = {
+                targetId,
+                snappedLeft: snappedLeft,
+                snappedTop: null,
+                xSnapLine: closest.snapX,
+                ySnapLine: null,
+              };
+            } else {
+              snappedStateRef.current.snappedLeft = snappedLeft;
+              snappedStateRef.current.xSnapLine = closest.snapX;
+            }
+          }
+        }
+
+        // Find and apply closest horizontal snap (if not already snapped)
+        if (horizontalSnapPoints.length > 0 && !ySnapped) {
+          const withinThreshold = horizontalSnapPoints.filter(
+            (p) => p.distance < snappingOptions.snapThreshold
+          );
+          if (withinThreshold.length > 0) {
+            const closest = withinThreshold.reduce((prev, curr) =>
+              curr.distance < prev.distance ? curr : prev
+            );
+            // Apply the exact offset to make edges flush
+            snappedTop = (target.top || 0) + closest.offset;
+            ySnapped = true;
+            hasEdgeSnap = true;
+            snapLines.push({ y: closest.snapY, orientation: "horizontal" });
+
+            // Store the snapped position for sticky state
+            if (!snappedStateRef.current) {
+              snappedStateRef.current = {
+                targetId,
+                snappedLeft: null,
+                snappedTop: snappedTop,
+                xSnapLine: null,
+                ySnapLine: closest.snapY,
+              };
+            } else {
+              snappedStateRef.current.snappedTop = snappedTop;
+              snappedStateRef.current.ySnapLine = closest.snapY;
+            }
+          }
+        }
       }
 
-      // Priority 3: Snap to Grid (lowest priority)
-      if (snappingOptions.snapToGrid) {
-        const workspaceBounds = workspace.getBoundingRect();
-
+      // Priority 3: Snap to Grid (lowest priority) - DISABLED when edge snapping is active
+      if (snappingOptions.snapToGrid && !hasEdgeSnap) {
         // Calculate position relative to workspace origin
         const relativeLeft = (target.left || 0) - (workspace.left || 0);
         const relativeTop = (target.top || 0) - (workspace.top || 0);
@@ -327,6 +617,8 @@ export const useSnapping = ({
     };
 
     // Add event listeners
+    canvas.on("mouse:down", handleMouseDown);
+    canvas.on("mouse:up", handleMouseUp);
     canvas.on("object:moving", handleObjectMoving);
     canvas.on("object:scaling", handleObjectScaling);
     canvas.on("object:rotating", handleObjectRotating);
@@ -335,6 +627,8 @@ export const useSnapping = ({
 
     // Cleanup
     return () => {
+      canvas.off("mouse:down", handleMouseDown);
+      canvas.off("mouse:up", handleMouseUp);
       canvas.off("object:moving", handleObjectMoving);
       canvas.off("object:scaling", handleObjectScaling);
       canvas.off("object:rotating", handleObjectRotating);
