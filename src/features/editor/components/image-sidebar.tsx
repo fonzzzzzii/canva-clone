@@ -72,12 +72,12 @@ const SortableImageItem = ({ image, onRemove, isDragging }: SortableImageItemPro
       style={style}
       {...attributes}
       {...listeners}
-      className="relative w-full h-[100px] group bg-muted rounded-sm overflow-hidden border hover:ring-2 hover:ring-primary/50 transition cursor-grab active:cursor-grabbing"
+      className="relative w-full group bg-muted rounded-sm overflow-hidden border hover:ring-2 hover:ring-primary/50 transition cursor-grab active:cursor-grabbing"
     >
       <img
         src={image.url}
         alt={image.originalName}
-        className="object-cover w-full h-full pointer-events-none"
+        className="w-full h-auto pointer-events-none"
         loading="lazy"
       />
 
@@ -100,11 +100,11 @@ const SortableImageItem = ({ image, onRemove, isDragging }: SortableImageItemPro
 // Overlay shown while dragging
 const DragOverlayContent = ({ image }: { image: ImageMetadata }) => {
   return (
-    <div className="w-[150px] h-[100px] bg-muted rounded-sm overflow-hidden border-2 border-primary shadow-lg opacity-90">
+    <div className="max-w-[150px] bg-muted rounded-sm overflow-hidden border-2 border-primary shadow-lg opacity-90">
       <img
         src={image.url}
         alt={image.originalName}
-        className="object-cover w-full h-full"
+        className="w-full h-auto"
       />
     </div>
   );
@@ -296,14 +296,15 @@ export const ImageSidebar = ({
                 items={uploadedImages.map((img) => img.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-2 gap-4">
+                <div className="columns-2 gap-3 space-y-3">
                   {uploadedImages.map((image) => (
-                    <SortableImageItem
-                      key={image.id}
-                      image={image}
-                      onRemove={handleDelete}
-                      isDragging={activeId === image.id}
-                    />
+                    <div key={image.id} className="break-inside-avoid">
+                      <SortableImageItem
+                        image={image}
+                        onRemove={handleDelete}
+                        isDragging={activeId === image.id}
+                      />
+                    </div>
                   ))}
                 </div>
               </SortableContext>
