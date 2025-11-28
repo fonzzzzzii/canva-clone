@@ -126,13 +126,13 @@ export const useHotkeys = ({
     }
 
     // Ctrl+Shift+G: Ungroup selected objects
-    if (isCtrlKey && isShiftKey && event.key === "G") {
+    if (isCtrlKey && isShiftKey && event.key.toLowerCase() === "g") {
       event.preventDefault();
       ungroupSelected?.();
     }
 
     // Ctrl+Shift+H: Toggle grid visibility (changed from Ctrl+Shift+G)
-    if (isCtrlKey && isShiftKey && event.key === "H") {
+    if (isCtrlKey && isShiftKey && event.key.toLowerCase() === "h") {
       event.preventDefault();
       toggleGrid?.();
     }
