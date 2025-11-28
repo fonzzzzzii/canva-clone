@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { fabric } from "fabric";
 
 import {
   FaBold,
@@ -78,9 +79,30 @@ export const Toolbar = ({
     fontSize: initialFontSize,
   });
 
-  // Align to page state - preserved across alignments
+  // Align to page state - preserved across alignments but reset on selection change
   const selectedCount = editor?.selectedObjects?.length || 0;
-  const [alignToPage, setAlignToPage] = useState(true);
+  const [alignToPage, setAlignToPage] = useState(false);
+
+  // Track selection by object references (stable across position changes)
+  const lastSelectionRef = useRef<fabric.Object[] | null>(null);
+
+  useEffect(() => {
+    const currentSelection = editor?.selectedObjects || null;
+    const lastSelection = lastSelectionRef.current;
+
+    // Check if this is actually a different selection (not just position changes)
+    // Compare by object reference, not by properties
+    const isDifferentSelection =
+      !lastSelection ||
+      !currentSelection ||
+      lastSelection.length !== currentSelection.length ||
+      !lastSelection.every((obj, idx) => obj === currentSelection[idx]);
+
+    if (isDifferentSelection) {
+      setAlignToPage(false);
+      lastSelectionRef.current = currentSelection ? [...currentSelection] : null;
+    }
+  }, [editor?.selectedObjects]);
 
   // For single object selection, always align to page (checkbox disabled but checked)
   const isSingleSelection = selectedCount === 1;

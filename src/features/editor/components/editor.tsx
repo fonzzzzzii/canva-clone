@@ -254,7 +254,7 @@ export const Editor = ({ initialData }: EditorProps) => {
             editor={editor}
             activeTool={activeTool}
             onChangeActiveTool={onChangeActiveTool}
-            key={JSON.stringify(editor?.canvas.getActiveObject())}
+            key={`toolbar-${editor?.selectedObjects?.length || 0}-${editor?.selectedObjects?.[0]?.type || 'none'}`}
           />
           <div className="flex-1 h-[calc(100%-124px)] bg-muted relative" ref={containerRef}>
             <canvas ref={canvasRef} />
