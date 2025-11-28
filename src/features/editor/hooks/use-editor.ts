@@ -3358,6 +3358,38 @@ export const useEditor = ({
         // Update the frame's previous transform for next operation
         frame.updatePreviousTransform();
       }
+
+      // Auto-select page when object is moved to a different page
+      if (target) {
+        const workspaces = canvas
+          .getObjects()
+          .filter((obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-"));
+
+        if (workspaces.length > 1) {
+          const objCenter = target.getCenterPoint();
+
+          for (const workspace of workspaces) {
+            const wsLeft = workspace.left || 0;
+            const wsTop = workspace.top || 0;
+            const wsWidth = (workspace.width || 0) * (workspace.scaleX || 1);
+            const wsHeight = (workspace.height || 0) * (workspace.scaleY || 1);
+
+            if (
+              objCenter.x >= wsLeft &&
+              objCenter.x <= wsLeft + wsWidth &&
+              objCenter.y >= wsTop &&
+              objCenter.y <= wsTop + wsHeight
+            ) {
+              // @ts-ignore
+              const pageNum = workspace.pageNumber;
+              if (pageNum && pageNum !== focusedPageNumber) {
+                setFocusedPageNumber(pageNum);
+              }
+              break;
+            }
+          }
+        }
+      }
     };
 
     canvas.on("object:moving", handleObjectMoving);
@@ -3369,7 +3401,7 @@ export const useEditor = ({
       canvas.off("object:scaling", handleObjectScaling);
       canvas.off("object:modified", handleObjectModified);
     };
-  }, [canvas]);
+  }, [canvas, focusedPageNumber, setFocusedPageNumber]);
 
   // Handle selection cleared - exit edit mode
   useEffect(() => {

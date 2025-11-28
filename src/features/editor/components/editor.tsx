@@ -31,6 +31,7 @@ import { AiSidebar } from "@/features/editor/components/ai-sidebar";
 import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
+import { PropertiesSidebar } from "@/features/editor/components/properties-sidebar";
 import { SnapLines } from "@/features/editor/components/snap-lines";
 import { GridOverlay } from "@/features/editor/components/grid-overlay";
 import { ContextMenu } from "@/features/editor/components/context-menu";
@@ -280,6 +281,11 @@ export const Editor = ({ initialData }: EditorProps) => {
           activeTool={activeTool}
           onChangeActiveTool={onChangeActiveTool}
         />
+        <PropertiesSidebar
+          editor={editor}
+          activeTool={activeTool}
+          onChangeActiveTool={onChangeActiveTool}
+        />
         <SettingsSidebar
           editor={editor}
           activeTool={activeTool}
@@ -341,6 +347,25 @@ export const Editor = ({ initialData }: EditorProps) => {
               e.preventDefault();
               const imageUrl = e.dataTransfer.getData("image-url");
               if (imageUrl && editor?.canvas) {
+                const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
+                const fabricPoint = new fabric.Point(point.x, point.y);
+
+                // Detect which page the drop point is on and select it
+                const workspaces = editor.canvas
+                  .getObjects()
+                  .filter((obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-"));
+
+                for (const workspace of workspaces) {
+                  // Use containsPoint for accurate hit testing (works with zoom/pan)
+                  if (workspace.containsPoint(fabricPoint)) {
+                    const pageNum = (workspace as any).pageNumber;
+                    if (pageNum && pageNum !== editor.getFocusedPageNumber()) {
+                      editor.setFocusedPage(pageNum);
+                    }
+                    break;
+                  }
+                }
+
                 // Clear highlight
                 if (hoveredFrame) {
                   hoveredFrame.set({ stroke: undefined, strokeWidth: 0 });
@@ -349,7 +374,6 @@ export const Editor = ({ initialData }: EditorProps) => {
                   setHoveredFrame(null);
                 } else {
                   // Add new image at drop position
-                  const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
                   editor.addImage(imageUrl, { left: point.x, top: point.y });
                 }
                 editor.canvas.requestRenderAll();

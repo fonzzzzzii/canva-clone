@@ -119,7 +119,8 @@ export type ActiveTool =
   | "ai"
   | "remove-bg"
   | "templates"
-  | "image-frame";
+  | "image-frame"
+  | "properties";
 
 export const FILL_COLOR = "rgba(0,0,0,1)";
 export const STROKE_COLOR = "rgba(0,0,0,1)";

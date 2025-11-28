@@ -1,11 +1,12 @@
 "use client";
 
-import { 
+import {
   LayoutTemplate,
   ImageIcon,
   Pencil,
   Settings,
   Shapes,
+  SlidersHorizontal,
   Sparkles,
   Type,
 } from "lucide-react";
@@ -60,6 +61,12 @@ export const Sidebar = ({
           label="AI"
           isActive={activeTool === "ai"}
           onClick={() => onChangeActiveTool("ai")}
+        />
+        <SidebarItem
+          icon={SlidersHorizontal}
+          label="Properties"
+          isActive={activeTool === "properties"}
+          onClick={() => onChangeActiveTool("properties")}
         />
         <SidebarItem
           icon={Settings}
