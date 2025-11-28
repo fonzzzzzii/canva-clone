@@ -188,54 +188,172 @@ export const useHotkeys = ({
           break;
       }
 
-      // Track which objects we've already moved (to avoid moving linked pairs twice)
-      const movedObjects = new Set<fabric.Object>();
+      const activeObject = canvas.getActiveObject();
 
-      activeObjects.forEach((obj) => {
-        if (movedObjects.has(obj)) return;
+      // If we have an ActiveSelection, move it as a whole (this keeps bounding box in sync)
+      if (activeObject?.type === "activeSelection") {
+        const selection = activeObject as fabric.ActiveSelection;
 
-        const currentLeft = obj.left || 0;
-        const currentTop = obj.top || 0;
-
-        // Move the object
-        obj.set({
-          left: currentLeft + deltaX,
-          top: currentTop + deltaY,
+        // Move the selection itself
+        selection.set({
+          left: (selection.left || 0) + deltaX,
+          top: (selection.top || 0) + deltaY,
         });
-        obj.setCoords();
-        movedObjects.add(obj);
+        selection.setCoords();
 
-        // If it's an ImageFrame, also move and update its linked image
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
-          const linkedImage = frame.getLinkedImage(canvas);
-          if (linkedImage && !movedObjects.has(linkedImage)) {
-            linkedImage.set({
-              left: (linkedImage.left || 0) + deltaX,
-              top: (linkedImage.top || 0) + deltaY,
-            });
-            linkedImage.applyFrameClip(frame);
-            linkedImage.setCoords();
-            movedObjects.add(linkedImage);
-          }
-        }
+        // Also move any linked objects that aren't in the selection
+        const selectionObjects = selection.getObjects();
+        const movedLinkedObjects = new Set<fabric.Object>();
 
-        // If it's a FramedImage, also move its linked frame
-        if (obj.type === "framedImage") {
-          const image = obj as FramedImage;
-          const linkedFrame = image.getLinkedFrame(canvas);
-          if (linkedFrame && !movedObjects.has(linkedFrame)) {
-            linkedFrame.set({
-              left: (linkedFrame.left || 0) + deltaX,
-              top: (linkedFrame.top || 0) + deltaY,
-            });
-            linkedFrame.setCoords();
-            movedObjects.add(linkedFrame);
-            // Update clip path after frame moved
-            image.applyFrameClip(linkedFrame);
+        selectionObjects.forEach((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const linkedImage = frame.getLinkedImage(canvas);
+            // If the linked image is NOT in the selection, move it manually
+            if (linkedImage && !selectionObjects.includes(linkedImage) && !movedLinkedObjects.has(linkedImage)) {
+              linkedImage.set({
+                left: (linkedImage.left || 0) + deltaX,
+                top: (linkedImage.top || 0) + deltaY,
+              });
+              linkedImage.setCoords();
+              movedLinkedObjects.add(linkedImage);
+            }
           }
-        }
-      });
+
+          if (obj.type === "framedImage") {
+            const image = obj as FramedImage;
+            const linkedFrame = image.getLinkedFrame(canvas);
+            // If the linked frame is NOT in the selection, move it manually
+            if (linkedFrame && !selectionObjects.includes(linkedFrame) && !movedLinkedObjects.has(linkedFrame)) {
+              linkedFrame.set({
+                left: (linkedFrame.left || 0) + deltaX,
+                top: (linkedFrame.top || 0) + deltaY,
+              });
+              linkedFrame.setCoords();
+              movedLinkedObjects.add(linkedFrame);
+            }
+          }
+        });
+
+        // Update clip paths for all frame/image pairs
+        // Need to calculate absolute positions since objects in selection have relative coords
+        // Account for selection scale when calculating positions
+        const groupCenter = selection.getCenterPoint();
+        selectionObjects.forEach((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (linkedImage) {
+              // Account for selection scale when calculating relative position
+              const relativeLeft = (frame.left || 0) * (selection.scaleX || 1);
+              const relativeTop = (frame.top || 0) * (selection.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * selection scale
+              const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
+
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              } as ImageFrame;
+
+              linkedImage.applyFrameClip(tempFrame);
+            }
+          }
+        });
+      } else if (activeObject?.type === "group") {
+        // Handle grouped objects - move the group itself
+        const group = activeObject as fabric.Group;
+
+        // Move the group
+        group.set({
+          left: (group.left || 0) + deltaX,
+          top: (group.top || 0) + deltaY,
+        });
+        group.setCoords();
+
+        // Update clip paths for any frame/image pairs inside the group
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+
+            if (linkedImage) {
+              // Calculate absolute position accounting for group scale
+              const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+              const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+              // Update image position
+              linkedImage.set({
+                left: absoluteLeft + linkedImage.offsetX,
+                top: absoluteTop + linkedImage.offsetY,
+              });
+
+              // Update clip path
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              } as ImageFrame;
+
+              linkedImage.applyFrameClip(tempFrame);
+              linkedImage.setCoords();
+            }
+          }
+        });
+      } else {
+        // Single object selected - move it directly
+        activeObjects.forEach((obj) => {
+          obj.set({
+            left: (obj.left || 0) + deltaX,
+            top: (obj.top || 0) + deltaY,
+          });
+          obj.setCoords();
+
+          // Handle linked pairs
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (linkedImage) {
+              linkedImage.set({
+                left: (linkedImage.left || 0) + deltaX,
+                top: (linkedImage.top || 0) + deltaY,
+              });
+              linkedImage.applyFrameClip(frame);
+              linkedImage.setCoords();
+            }
+          }
+
+          if (obj.type === "framedImage") {
+            const image = obj as FramedImage;
+            const linkedFrame = image.getLinkedFrame(canvas);
+            if (linkedFrame) {
+              linkedFrame.set({
+                left: (linkedFrame.left || 0) + deltaX,
+                top: (linkedFrame.top || 0) + deltaY,
+              });
+              linkedFrame.setCoords();
+              image.applyFrameClip(linkedFrame);
+            }
+          }
+        });
+      }
 
       canvas.requestRenderAll();
       save();

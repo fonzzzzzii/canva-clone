@@ -2811,6 +2811,8 @@ export const useEditor = ({
       // Handle ActiveSelection (multi-select)
       if (target?.type === "activeSelection") {
         const selection = target as fabric.ActiveSelection;
+        const selectionObjects = selection.getObjects();
+
         selection.forEachObject((obj) => {
           if (obj.type === "imageFrame") {
             // For objects in a group, we need to calculate their absolute position
@@ -2818,31 +2820,59 @@ export const useEditor = ({
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
+              // Check if the linked image is ALSO in the selection
+              // If so, fabric.js is already moving it - we just need to update the clip
+              const imageIsInSelection = selectionObjects.some(
+                (selObj) => selObj.type === "framedImage" && (selObj as any).id === image.id
+              );
+
               // Get absolute position by combining group and object transforms
+              // Account for selection scale when calculating relative position
               const groupCenter = selection.getCenterPoint();
-              const objLeft = (obj.left || 0);
-              const objTop = (obj.top || 0);
+              const relativeLeft = (obj.left || 0) * (selection.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (selection.scaleY || 1);
 
-              const absoluteLeft = groupCenter.x + objLeft;
-              const absoluteTop = groupCenter.y + objTop;
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
 
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
+              // Effective frame scale = frame scale * selection scale
+              const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
-              // Create a temporary frame position for clipping
-              const tempFrame = {
-                left: absoluteLeft,
-                top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
-              } as ImageFrame;
+              if (imageIsInSelection) {
+                // Image is being moved by fabric.js as part of selection
+                // Just update the clip path to match frame's new position
+                const tempFrame = {
+                  left: absoluteLeft,
+                  top: absoluteTop,
+                  width: frame.width,
+                  height: frame.height,
+                  scaleX: effectiveScaleX,
+                  scaleY: effectiveScaleY,
+                } as ImageFrame;
 
-              image.applyFrameClip(tempFrame);
-              image.setCoords();
+                image.applyFrameClip(tempFrame);
+                image.setCoords();
+              } else {
+                // Image is NOT in selection - we need to move it manually
+                image.set({
+                  left: absoluteLeft + image.offsetX,
+                  top: absoluteTop + image.offsetY,
+                });
+
+                // Create a temporary frame position for clipping
+                const tempFrame = {
+                  left: absoluteLeft,
+                  top: absoluteTop,
+                  width: frame.width,
+                  height: frame.height,
+                  scaleX: effectiveScaleX,
+                  scaleY: effectiveScaleY,
+                } as ImageFrame;
+
+                image.applyFrameClip(tempFrame);
+                image.setCoords();
+              }
             }
           }
         });
@@ -2903,6 +2933,94 @@ export const useEditor = ({
 
     const handleObjectScaling = (e: fabric.IEvent) => {
       const target = e.target;
+
+      // Handle ActiveSelection scaling
+      if (target?.type === "activeSelection") {
+        const selection = target as fabric.ActiveSelection;
+        const selectionObjects = selection.getObjects();
+
+        // Store initial scale values at the START of scaling operation
+        if ((selection as any)._scalingStarted !== true) {
+          (selection as any)._scalingStarted = true;
+          (selection as any)._initialSelectionScaleX = selection.scaleX || 1;
+          (selection as any)._initialSelectionScaleY = selection.scaleY || 1;
+        }
+
+        // Calculate the scale ratio from the initial scale
+        const selectionScaleRatioX = (selection.scaleX || 1) / (selection as any)._initialSelectionScaleX;
+        const selectionScaleRatioY = (selection.scaleY || 1) / (selection as any)._initialSelectionScaleY;
+        const uniformSelectionScaleRatio = Math.max(selectionScaleRatioX, selectionScaleRatioY);
+
+        const groupCenter = selection.getCenterPoint();
+
+        selectionObjects.forEach((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+
+            if (image && !image.isInEditMode) {
+              // Check if image is also in selection
+              const imageIsInSelection = selectionObjects.some(
+                (selObj) => selObj.type === "framedImage" && (selObj as any).id === image.id
+              );
+
+              // Calculate absolute position of frame (accounting for selection transform)
+              const relativeLeft = (obj.left || 0) * (selection.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (selection.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * selection scale
+              const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
+
+              if (!imageIsInSelection) {
+                // Image is NOT in selection - we control it manually
+                // Use stored initial values for the image
+                const initialOffsetX = (image as any)._initialOffsetX ?? image.offsetX;
+                const initialOffsetY = (image as any)._initialOffsetY ?? image.offsetY;
+                const initialCustomScale = (image as any)._initialCustomScale ?? image.customScaleX;
+
+                // Store initial values if not already stored
+                if ((image as any)._initialOffsetX === undefined) {
+                  (image as any)._initialOffsetX = image.offsetX;
+                  (image as any)._initialOffsetY = image.offsetY;
+                  (image as any)._initialCustomScale = image.customScaleX;
+                }
+
+                // Calculate scaled values from initial
+                const scaledOffsetX = initialOffsetX * selectionScaleRatioX;
+                const scaledOffsetY = initialOffsetY * selectionScaleRatioY;
+                const scaledCustomScale = initialCustomScale * uniformSelectionScaleRatio;
+
+                image.set({
+                  left: absoluteLeft + scaledOffsetX,
+                  top: absoluteTop + scaledOffsetY,
+                  scaleX: scaledCustomScale,
+                  scaleY: scaledCustomScale,
+                });
+              }
+              // If image IS in selection, fabric.js handles its transform, just update clip
+
+              // Create temp frame with absolute/effective values for clipping
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              } as ImageFrame;
+
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+
+        canvas.requestRenderAll();
+        return;
+      }
 
       if (target?.type === "imageFrame") {
         const frame = target as ImageFrame;
@@ -3015,24 +3133,77 @@ export const useEditor = ({
     const handleObjectModified = (e: fabric.IEvent) => {
       const target = e.target;
 
-      // Handle ActiveSelection (multi-select) - sync all frames after move
+      // Handle ActiveSelection (multi-select) - sync all frames after move/scale
       if (target?.type === "activeSelection") {
         const selection = target as fabric.ActiveSelection;
-        selection.forEachObject((obj) => {
+        const selectionObjects = selection.getObjects();
+
+        // Check if scaling occurred (flag was set during scaling)
+        const wasScaled = (selection as any)._scalingStarted === true;
+
+        // Calculate the scale ratio from initial (only if scaling occurred)
+        let selectionScaleRatioX = 1;
+        let selectionScaleRatioY = 1;
+        let uniformSelectionScaleRatio = 1;
+
+        if (wasScaled) {
+          const initialScaleX = (selection as any)._initialSelectionScaleX;
+          const initialScaleY = (selection as any)._initialSelectionScaleY;
+          selectionScaleRatioX = (selection.scaleX || 1) / initialScaleX;
+          selectionScaleRatioY = (selection.scaleY || 1) / initialScaleY;
+          uniformSelectionScaleRatio = Math.max(selectionScaleRatioX, selectionScaleRatioY);
+        }
+
+        const groupCenter = selection.getCenterPoint();
+
+        selectionObjects.forEach((obj) => {
           if (obj.type === "imageFrame") {
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
-              // Get absolute position
-              const groupCenter = selection.getCenterPoint();
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Check if image is also in selection
+              const imageIsInSelection = selectionObjects.some(
+                (selObj) => selObj.type === "framedImage" && (selObj as any).id === image.id
+              );
 
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
+              // Only update scale values if scaling actually occurred AND image is not in selection
+              if (wasScaled && !imageIsInSelection) {
+                // Finalize the scaled values using initial stored values
+                const initialOffsetX = (image as any)._initialOffsetX ?? image.offsetX;
+                const initialOffsetY = (image as any)._initialOffsetY ?? image.offsetY;
+                const initialCustomScale = (image as any)._initialCustomScale ?? image.customScaleX;
+
+                // Permanently update the image's stored offset/scale
+                image.offsetX = initialOffsetX * selectionScaleRatioX;
+                image.offsetY = initialOffsetY * selectionScaleRatioY;
+                image.customScaleX = initialCustomScale * uniformSelectionScaleRatio;
+                image.customScaleY = image.customScaleX;
+
+                // Clear the initial values
+                delete (image as any)._initialOffsetX;
+                delete (image as any)._initialOffsetY;
+                delete (image as any)._initialCustomScale;
+              }
+
+              // Calculate absolute position (accounting for selection scale)
+              const relativeLeft = (obj.left || 0) * (selection.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (selection.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale
+              const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
+
+              if (!imageIsInSelection) {
+                image.set({
+                  left: absoluteLeft + image.offsetX,
+                  top: absoluteTop + image.offsetY,
+                  scaleX: image.customScaleX,
+                  scaleY: image.customScaleY,
+                });
+              }
 
               // Create temp frame for clipping
               const tempFrame = {
@@ -3040,8 +3211,8 @@ export const useEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
 
               image.applyFrameClip(tempFrame);
@@ -3049,6 +3220,14 @@ export const useEditor = ({
             }
           }
         });
+
+        // Clear the selection's scaling tracking
+        if (wasScaled) {
+          delete (selection as any)._scalingStarted;
+          delete (selection as any)._initialSelectionScaleX;
+          delete (selection as any)._initialSelectionScaleY;
+        }
+
         canvas.requestRenderAll();
         return;
       }
