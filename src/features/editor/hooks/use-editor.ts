@@ -1908,6 +1908,175 @@ const buildEditor = ({
     getPageCount: () => {
       return pageCount;
     },
+
+    // Grouping
+    groupSelected: () => {
+      const objects = canvas.getActiveObjects().filter(
+        (obj) => obj.name !== "clip" && !obj.name?.startsWith("clip-page-") && obj.type !== "framedImage"
+      );
+      if (objects.length < 2) return;
+
+      const groupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      objects.forEach((obj) => {
+        (obj as any).groupId = groupId;
+
+        // If it's an ImageFrame, also set groupId on linked image
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            (linkedImage as any).groupId = groupId;
+          }
+        }
+      });
+      canvas.requestRenderAll();
+      save();
+    },
+
+    ungroupSelected: () => {
+      const objects = canvas.getActiveObjects();
+      objects.forEach((obj) => {
+        (obj as any).groupId = undefined;
+
+        // If it's an ImageFrame, also clear groupId on linked image
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            (linkedImage as any).groupId = undefined;
+          }
+        }
+      });
+      canvas.requestRenderAll();
+      save();
+    },
+
+    isGrouped: () => {
+      const objects = canvas.getActiveObjects();
+      if (objects.length === 0) return false;
+      return objects.some((obj) => (obj as any).groupId);
+    },
+
+    // Lock/Unlock
+    lockSelected: () => {
+      canvas.getActiveObjects().forEach((obj) => {
+        obj.set({
+          lockMovementX: true,
+          lockMovementY: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+        });
+        (obj as any).locked = true;
+
+        // If it's an ImageFrame, also lock linked image
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            linkedImage.set({
+              lockMovementX: true,
+              lockMovementY: true,
+              lockScalingX: true,
+              lockScalingY: true,
+              lockRotation: true,
+            });
+            (linkedImage as any).locked = true;
+          }
+        }
+      });
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      save();
+    },
+
+    unlockSelected: () => {
+      canvas.getActiveObjects().forEach((obj) => {
+        obj.set({
+          lockMovementX: false,
+          lockMovementY: false,
+          lockScalingX: false,
+          lockScalingY: false,
+          lockRotation: false,
+        });
+        (obj as any).locked = false;
+
+        // If it's an ImageFrame, also unlock linked image
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            linkedImage.set({
+              lockMovementX: false,
+              lockMovementY: false,
+              lockScalingX: false,
+              lockScalingY: false,
+              lockRotation: false,
+            });
+            (linkedImage as any).locked = false;
+          }
+        }
+      });
+      canvas.requestRenderAll();
+      save();
+    },
+
+    isLocked: () => {
+      const objects = canvas.getActiveObjects();
+      if (objects.length === 0) return false;
+      return objects.some((obj) => (obj as any).locked);
+    },
+
+    // Ordering
+    bringToFront: () => {
+      canvas.getActiveObjects().forEach((obj) => {
+        canvas.bringToFront(obj);
+
+        // If it's an ImageFrame, also bring linked image to front (but behind frame)
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            canvas.bringToFront(linkedImage);
+            canvas.bringToFront(obj); // Ensure frame stays on top of image
+          }
+        }
+      });
+      canvas.requestRenderAll();
+
+      // Keep workspace at the back
+      const workspaces = getWorkspaces();
+      workspaces.forEach((ws) => ws.sendToBack());
+      save();
+    },
+
+    sendToBack: () => {
+      const workspaces = getWorkspaces();
+
+      canvas.getActiveObjects().forEach((obj) => {
+        canvas.sendToBack(obj);
+
+        // If it's an ImageFrame, also send linked image to back (but in front of frame)
+        if (obj.type === "imageFrame") {
+          const frame = obj as ImageFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            canvas.sendToBack(linkedImage);
+          }
+        }
+      });
+
+      // Keep workspace at the very back
+      workspaces.forEach((ws) => ws.sendToBack());
+      canvas.requestRenderAll();
+      save();
+    },
+
+    // Duplicate
+    duplicate: () => {
+      copy();
+      paste();
+    },
   };
 };
 
@@ -1965,7 +2134,7 @@ export const useEditor = ({
     saveCallback
   });
 
-  const { copy, paste } = useClipboard({ canvas });
+  const { copy, paste, hasClipboard } = useClipboard({ canvas });
 
   const { autoZoom } = useAutoResize({
     canvas,
@@ -2021,6 +2190,51 @@ export const useEditor = ({
     );
   }, [canvas]);
 
+  const groupSelectedCallback = useCallback(() => {
+    if (!canvas) return;
+
+    const objects = canvas.getActiveObjects().filter(
+      (obj) => obj.name !== "clip" && !obj.name?.startsWith("clip-page-") && obj.type !== "framedImage"
+    );
+    if (objects.length < 2) return;
+
+    const groupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    objects.forEach((obj) => {
+      (obj as any).groupId = groupId;
+
+      // If it's an ImageFrame, also set groupId on linked image
+      if (obj.type === "imageFrame") {
+        const frame = obj as ImageFrame;
+        const linkedImage = frame.getLinkedImage(canvas);
+        if (linkedImage) {
+          (linkedImage as any).groupId = groupId;
+        }
+      }
+    });
+    canvas.requestRenderAll();
+    save();
+  }, [canvas, save]);
+
+  const ungroupSelectedCallback = useCallback(() => {
+    if (!canvas) return;
+
+    const objects = canvas.getActiveObjects();
+    objects.forEach((obj) => {
+      (obj as any).groupId = undefined;
+
+      // If it's an ImageFrame, also clear groupId on linked image
+      if (obj.type === "imageFrame") {
+        const frame = obj as ImageFrame;
+        const linkedImage = frame.getLinkedImage(canvas);
+        if (linkedImage) {
+          (linkedImage as any).groupId = undefined;
+        }
+      }
+    });
+    canvas.requestRenderAll();
+    save();
+  }, [canvas, save]);
+
   useHotkeys({
     undo,
     redo,
@@ -2034,6 +2248,8 @@ export const useEditor = ({
     zoomOut,
     autoZoom,
     gridSize: snappingOptions.snapGridSize,
+    groupSelected: groupSelectedCallback,
+    ungroupSelected: ungroupSelectedCallback,
   });
 
   useLoadState({
@@ -2057,19 +2273,53 @@ export const useEditor = ({
   });
 
   // Handle FramedImage selection state to show/hide border
+  // Also handle group selection expansion
   useEffect(() => {
     if (!canvas) return;
 
+    // Flag to prevent infinite loop when expanding group selection
+    let isExpandingGroupSelection = false;
+
     const handleSelectionCreated = (e: fabric.IEvent) => {
       const selected = e.selected;
-      if (selected) {
-        selected.forEach((obj: any) => {
-          if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
-            obj.setSelected(true);
+      if (!selected || selected.length === 0) return;
+
+      // Handle group selection expansion (only for single object selection)
+      if (selected.length === 1 && !isExpandingGroupSelection) {
+        const selectedObj = selected[0];
+        const groupId = (selectedObj as any).groupId;
+
+        if (groupId) {
+          // Find all objects with the same groupId
+          const groupObjects = canvas.getObjects().filter((obj) => {
+            if ((obj as any).groupId !== groupId) return false;
+            // Skip framedImages - we only want to select the frames
+            if (obj.type === "framedImage") return false;
+            // Skip non-selectable objects
+            if (!obj.selectable) return false;
+            return true;
+          });
+
+          // If there are multiple objects in the group, create an ActiveSelection
+          if (groupObjects.length > 1) {
+            isExpandingGroupSelection = true;
+            canvas.discardActiveObject();
+            const selection = new fabric.ActiveSelection(groupObjects, { canvas });
+            canvas.setActiveObject(selection);
+            canvas.requestRenderAll();
+            isExpandingGroupSelection = false;
+            return;
           }
-        });
-        canvas.requestRenderAll();
+        }
       }
+
+      // Handle FramedImage border display
+      selected.forEach((obj: any) => {
+        if ((obj.type === "framedImage" || (obj.type === "group" && obj.imageUrl)) && obj.setSelected) {
+          obj.setSelected(true);
+        }
+      });
+      canvas.requestRenderAll();
     };
 
     const handleSelectionUpdated = (e: fabric.IEvent) => {
@@ -2262,6 +2512,9 @@ export const useEditor = ({
       }
     };
 
+    // Track previous positions for group movement delta calculation
+    const previousPositions = new Map<fabric.Object, { left: number; top: number }>();
+
     const handleObjectMoving = (e: fabric.IEvent) => {
       const target = e.target;
 
@@ -2306,10 +2559,64 @@ export const useEditor = ({
         return;
       }
 
-      // Handle single frame selection
-      if (target?.type === "imageFrame") {
-        syncFrameImage(target as ImageFrame);
+      // Handle single object movement - check for groupId
+      if (target) {
+        const groupId = (target as any).groupId;
+
+        if (groupId) {
+          // Get previous position (or initialize it)
+          let prevPos = previousPositions.get(target);
+          if (!prevPos) {
+            prevPos = { left: target.left || 0, top: target.top || 0 };
+            previousPositions.set(target, prevPos);
+          }
+
+          // Calculate delta from previous position
+          const deltaX = (target.left || 0) - prevPos.left;
+          const deltaY = (target.top || 0) - prevPos.top;
+
+          // Update previous position
+          prevPos.left = target.left || 0;
+          prevPos.top = target.top || 0;
+
+          // Move all other objects in the same group
+          if (deltaX !== 0 || deltaY !== 0) {
+            const allObjects = canvas.getObjects();
+            allObjects.forEach((obj) => {
+              if (obj === target) return;
+              if ((obj as any).groupId !== groupId) return;
+
+              // Skip framedImages - they'll be moved by their linked frame
+              if (obj.type === "framedImage") return;
+
+              obj.set({
+                left: (obj.left || 0) + deltaX,
+                top: (obj.top || 0) + deltaY,
+              });
+              obj.setCoords();
+
+              // If it's an ImageFrame, sync the linked image
+              if (obj.type === "imageFrame") {
+                syncFrameImage(obj as ImageFrame);
+              }
+            });
+          }
+        }
+
+        // Handle single frame selection
+        if (target.type === "imageFrame") {
+          syncFrameImage(target as ImageFrame);
+        }
       }
+    };
+
+    // Clear previous positions when object is deselected or modified
+    const handleSelectionCleared = () => {
+      previousPositions.clear();
+    };
+
+    const handleObjectModifiedForGroup = () => {
+      previousPositions.clear();
     };
 
     const handleObjectScaling = (e: fabric.IEvent) => {
@@ -2428,11 +2735,15 @@ export const useEditor = ({
     canvas.on("object:moving", handleObjectMoving);
     canvas.on("object:scaling", handleObjectScaling);
     canvas.on("object:modified", handleObjectModified);
+    canvas.on("object:modified", handleObjectModifiedForGroup);
+    canvas.on("selection:cleared", handleSelectionCleared);
 
     return () => {
       canvas.off("object:moving", handleObjectMoving);
       canvas.off("object:scaling", handleObjectScaling);
       canvas.off("object:modified", handleObjectModified);
+      canvas.off("object:modified", handleObjectModifiedForGroup);
+      canvas.off("selection:cleared", handleSelectionCleared);
     };
   }, [canvas]);
 
@@ -2701,5 +3012,5 @@ export const useEditor = ({
     ]
   );
 
-  return { init, editor, snapLines, snappingOptions, container };
+  return { init, editor, snapLines, snappingOptions, container, hasClipboard };
 };

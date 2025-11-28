@@ -20,7 +20,9 @@ export const JSON_KEYS = [
   "imageScaleY",
   "imageOffsetX",
   "imageOffsetY",
-  "fitMode"
+  "fitMode",
+  "groupId",
+  "locked",
 ];
 
 export const filters = [
@@ -316,4 +318,17 @@ export interface Editor {
   getFocusedPageNumber: () => number;
   getPageCount: () => number;
   zoomToPage: (pageNumber: number) => void;
+  // Grouping
+  groupSelected: () => void;
+  ungroupSelected: () => void;
+  isGrouped: () => boolean;
+  // Lock/Unlock
+  lockSelected: () => void;
+  unlockSelected: () => void;
+  isLocked: () => boolean;
+  // Ordering
+  bringToFront: () => void;
+  sendToBack: () => void;
+  // Duplicate
+  duplicate: () => void;
 };

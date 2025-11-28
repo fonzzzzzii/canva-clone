@@ -33,6 +33,13 @@ import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar"
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
 import { SnapLines } from "@/features/editor/components/snap-lines";
 import { GridOverlay } from "@/features/editor/components/grid-overlay";
+import { ContextMenu } from "@/features/editor/components/context-menu";
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  visible: boolean;
+}
 
 interface EditorProps {
   initialData: ResponseType["data"];
@@ -55,6 +62,7 @@ export const Editor = ({ initialData }: EditorProps) => {
   ), [mutate]);
 
   const [activeTool, setActiveTool] = useState<ActiveTool>("select");
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
 
   const onClearSelection = useCallback(() => {
     if (selectionDependentTools.includes(activeTool)) {
@@ -62,7 +70,7 @@ export const Editor = ({ initialData }: EditorProps) => {
     }
   }, [activeTool]);
 
-  const { init, editor, snapLines, snappingOptions, container } = useEditor({
+  const { init, editor, snapLines, snappingOptions, container, hasClipboard } = useEditor({
     defaultState: initialData.json,
     defaultWidth: initialData.width,
     defaultHeight: initialData.height,
@@ -105,6 +113,53 @@ export const Editor = ({ initialData }: EditorProps) => {
       canvas.dispose();
     };
   }, [init]);
+
+  // Handle right-click context menu
+  useEffect(() => {
+    if (!editor?.canvas) return;
+
+    const canvas = editor.canvas;
+    const canvasElement = (canvas as any).upperCanvasEl as HTMLCanvasElement | undefined;
+
+    if (!canvasElement) return;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Check if clicking on an object and select it
+      // But skip workspace/clip objects - they should never be selected
+      const target = canvas.findTarget(e, false);
+      if (target && !canvas.getActiveObjects().includes(target)) {
+        const isWorkspace = target.name === "clip" || target.name?.startsWith("clip-page-");
+        if (!isWorkspace && target.selectable) {
+          canvas.setActiveObject(target);
+          canvas.requestRenderAll();
+        }
+      }
+
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        visible: true,
+      });
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      // Close context menu on left click
+      if (e.button === 0) {
+        setContextMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    canvasElement.addEventListener("contextmenu", handleContextMenu);
+    canvasElement.addEventListener("mousedown", handleMouseDown);
+
+    return () => {
+      canvasElement.removeEventListener("contextmenu", handleContextMenu);
+      canvasElement.removeEventListener("mousedown", handleMouseDown);
+    };
+  }, [editor?.canvas]);
 
   return (
     <div className="h-full flex flex-col">
@@ -231,6 +286,14 @@ export const Editor = ({ initialData }: EditorProps) => {
           <Footer editor={editor} />
         </main>
       </div>
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        visible={contextMenu.visible}
+        onClose={() => setContextMenu((prev) => ({ ...prev, visible: false }))}
+        editor={editor}
+        hasClipboard={hasClipboard?.() || false}
+      />
     </div>
   );
 };

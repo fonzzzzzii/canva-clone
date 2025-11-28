@@ -153,5 +153,9 @@ export const useClipboard = ({
     });
   }, [canvas]);
 
-  return { copy, paste };
+  const hasClipboard = useCallback(() => {
+    return clipboard.current !== null;
+  }, []);
+
+  return { copy, paste, hasClipboard };
 };

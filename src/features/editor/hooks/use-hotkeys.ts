@@ -16,6 +16,8 @@ interface UseHotkeysProps {
   zoomOut?: () => void;
   autoZoom?: () => void;
   gridSize?: number;
+  groupSelected?: () => void;
+  ungroupSelected?: () => void;
 }
 
 export const useHotkeys = ({
@@ -31,6 +33,8 @@ export const useHotkeys = ({
   zoomOut,
   autoZoom,
   gridSize = 10,
+  groupSelected,
+  ungroupSelected,
 }: UseHotkeysProps) => {
   useEvent("keydown", (event) => {
     const isCtrlKey = event.ctrlKey || event.metaKey;
@@ -93,6 +97,13 @@ export const useHotkeys = ({
       paste();
     }
 
+    // Ctrl+D: Duplicate selected objects
+    if (isCtrlKey && event.key === "d") {
+      event.preventDefault();
+      copy();
+      paste();
+    }
+
     if (isCtrlKey && event.key === "s") {
       event.preventDefault();
       save(true);
@@ -108,8 +119,20 @@ export const useHotkeys = ({
       canvas?.renderAll();
     }
 
-    // Ctrl+Shift+G: Toggle grid visibility
+    // Ctrl+G: Group selected objects
+    if (isCtrlKey && !isShiftKey && event.key === "g") {
+      event.preventDefault();
+      groupSelected?.();
+    }
+
+    // Ctrl+Shift+G: Ungroup selected objects
     if (isCtrlKey && isShiftKey && event.key === "G") {
+      event.preventDefault();
+      ungroupSelected?.();
+    }
+
+    // Ctrl+Shift+H: Toggle grid visibility (changed from Ctrl+Shift+G)
+    if (isCtrlKey && isShiftKey && event.key === "H") {
       event.preventDefault();
       toggleGrid?.();
     }
