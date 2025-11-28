@@ -933,8 +933,11 @@ const buildEditor = ({
         const workspace = getFocusedWorkspace();
         if (!workspace) return;
 
-        const workspaceBounds = workspace.getBoundingRect();
-        const targetLeft = workspaceBounds.left;
+        // Workspace uses default origin (top-left), so workspace.left IS the left edge
+        // Use getCenterPoint() and calculate edges from center for consistency
+        const workspaceCenter = workspace.getCenterPoint();
+        const workspaceWidth = (workspace.width || 0) * (workspace.scaleX || 1);
+        const targetLeft = workspaceCenter.x - workspaceWidth / 2;
 
         if (activeObj.type === "activeSelection") {
           const selection = activeObj as fabric.ActiveSelection;
@@ -962,9 +965,10 @@ const buildEditor = ({
 
           canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          activeObj.setCoords();
-          const bounds = activeObj.getBoundingRect();
-          const offset = targetLeft - bounds.left;
+          const objCenter = activeObj.getCenterPoint();
+          const objWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
+          const objLeft = objCenter.x - objWidth / 2;
+          const offset = targetLeft - objLeft;
           activeObj.set({ left: (activeObj.left || 0) + offset });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
@@ -1143,8 +1147,10 @@ const buildEditor = ({
         const workspace = getFocusedWorkspace();
         if (!workspace) return;
 
-        const workspaceBounds = workspace.getBoundingRect();
-        const targetRight = workspaceBounds.left + workspaceBounds.width;
+        // Use getCenterPoint() and calculate edges from center for consistency
+        const workspaceCenter = workspace.getCenterPoint();
+        const workspaceWidth = (workspace.width || 0) * (workspace.scaleX || 1);
+        const targetRight = workspaceCenter.x + workspaceWidth / 2;
 
         if (activeObj.type === "activeSelection") {
           const selection = activeObj as fabric.ActiveSelection;
@@ -1172,9 +1178,10 @@ const buildEditor = ({
 
           canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          activeObj.setCoords();
-          const bounds = activeObj.getBoundingRect();
-          const offset = targetRight - (bounds.left + bounds.width);
+          const objCenter = activeObj.getCenterPoint();
+          const objWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
+          const objRight = objCenter.x + objWidth / 2;
+          const offset = targetRight - objRight;
           activeObj.set({ left: (activeObj.left || 0) + offset });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
@@ -1246,8 +1253,10 @@ const buildEditor = ({
         const workspace = getFocusedWorkspace();
         if (!workspace) return;
 
-        const workspaceBounds = workspace.getBoundingRect();
-        const targetTop = workspaceBounds.top;
+        // Use getCenterPoint() and calculate edges from center for consistency
+        const workspaceCenter = workspace.getCenterPoint();
+        const workspaceHeight = (workspace.height || 0) * (workspace.scaleY || 1);
+        const targetTop = workspaceCenter.y - workspaceHeight / 2;
 
         if (activeObj.type === "activeSelection") {
           const selection = activeObj as fabric.ActiveSelection;
@@ -1275,9 +1284,10 @@ const buildEditor = ({
 
           canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          activeObj.setCoords();
-          const bounds = activeObj.getBoundingRect();
-          const offset = targetTop - bounds.top;
+          const objCenter = activeObj.getCenterPoint();
+          const objHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
+          const objTop = objCenter.y - objHeight / 2;
+          const offset = targetTop - objTop;
           activeObj.set({ top: (activeObj.top || 0) + offset });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
@@ -1453,8 +1463,10 @@ const buildEditor = ({
         const workspace = getFocusedWorkspace();
         if (!workspace) return;
 
-        const workspaceBounds = workspace.getBoundingRect();
-        const targetBottom = workspaceBounds.top + workspaceBounds.height;
+        // Use getCenterPoint() and calculate edges from center for consistency
+        const workspaceCenter = workspace.getCenterPoint();
+        const workspaceHeight = (workspace.height || 0) * (workspace.scaleY || 1);
+        const targetBottom = workspaceCenter.y + workspaceHeight / 2;
 
         if (activeObj.type === "activeSelection") {
           const selection = activeObj as fabric.ActiveSelection;
@@ -1482,9 +1494,10 @@ const buildEditor = ({
 
           canvas.setActiveObject(new fabric.ActiveSelection(objects, { canvas }));
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          activeObj.setCoords();
-          const bounds = activeObj.getBoundingRect();
-          const offset = targetBottom - (bounds.top + bounds.height);
+          const objCenter = activeObj.getCenterPoint();
+          const objHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
+          const objBottom = objCenter.y + objHeight / 2;
+          const offset = targetBottom - objBottom;
           activeObj.set({ top: (activeObj.top || 0) + offset });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
