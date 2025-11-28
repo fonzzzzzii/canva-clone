@@ -936,8 +936,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -947,8 +955,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
@@ -1109,8 +1117,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -1120,8 +1136,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
@@ -1282,8 +1298,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -1293,8 +1317,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
@@ -1455,8 +1479,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -1466,8 +1498,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
@@ -1627,8 +1659,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -1638,8 +1678,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
@@ -1800,8 +1840,16 @@ const buildEditor = ({
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Account for group scale when calculating absolute position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
@@ -1811,8 +1859,8 @@ const buildEditor = ({
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
               image.applyFrameClip(tempFrame);
               image.setCoords();
