@@ -23,7 +23,7 @@ import { StrokeWidthSidebar } from "@/features/editor/components/stroke-width-si
 import { OpacitySidebar } from "@/features/editor/components/opacity-sidebar";
 import { TextSidebar } from "@/features/editor/components/text-sidebar";
 import { FontSidebar } from "@/features/editor/components/font-sidebar";
-import { ImageSidebar } from "@/features/editor/components/image-sidebar";
+import { ImageSidebar, ImageMetadata } from "@/features/editor/components/image-sidebar";
 import { ImageFrameSidebar } from "@/features/editor/components/image-frame-sidebar";
 import { FilterSidebar } from "@/features/editor/components/filter-sidebar";
 import { DrawSidebar } from "@/features/editor/components/draw-sidebar";
@@ -64,11 +64,26 @@ export const Editor = ({ initialData }: EditorProps) => {
   const [activeTool, setActiveTool] = useState<ActiveTool>("select");
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
 
-  // Parse uploaded images from database (stored as JSON string)
-  const [uploadedImages, setUploadedImages] = useState<string[]>(() => {
+  // Parse uploaded images from database (stored as JSON string of ImageMetadata[])
+  const [uploadedImages, setUploadedImages] = useState<ImageMetadata[]>(() => {
     if (initialData.uploadedImages) {
       try {
-        return JSON.parse(initialData.uploadedImages);
+        const parsed = JSON.parse(initialData.uploadedImages);
+        // Handle migration from old format (string[]) to new format (ImageMetadata[])
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (typeof parsed[0] === 'string') {
+            // Old format: convert URLs to ImageMetadata
+            return parsed.map((url: string, index: number) => ({
+              url,
+              uploadedAt: new Date().toISOString(),
+              originalName: `Image ${index + 1}`,
+              size: 0,
+              id: `${url}-${Date.now()}-${index}`,
+            }));
+          }
+          return parsed;
+        }
+        return [];
       } catch {
         return [];
       }
@@ -77,7 +92,7 @@ export const Editor = ({ initialData }: EditorProps) => {
   });
 
   // Handle uploaded images changes - save to database
-  const onUploadedImagesChange = useCallback((images: string[]) => {
+  const onUploadedImagesChange = useCallback((images: ImageMetadata[]) => {
     setUploadedImages(images);
     mutate({ uploadedImages: JSON.stringify(images) });
   }, [mutate]);
