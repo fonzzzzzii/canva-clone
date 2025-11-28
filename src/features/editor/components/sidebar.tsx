@@ -33,7 +33,7 @@ export const Sidebar = ({
         />
         <SidebarItem
           icon={ImageIcon}
-          label="Image"
+          label="Images"
           isActive={activeTool === "images"}
           onClick={() => onChangeActiveTool("images")}
         />
