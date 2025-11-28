@@ -39,19 +39,29 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
     return undefined;
   }, [canvas]);
 
-  // Helper to get absolute frame position (accounting for group membership)
-  const getAbsoluteFramePosition = useCallback((frame: ImageFrame) => {
+  // Helper to get absolute frame position and effective scale (accounting for group membership)
+  const getAbsoluteFrameTransform = useCallback((frame: ImageFrame) => {
     if (frame.group) {
       const group = frame.group;
       const groupCenter = group.getCenterPoint();
+      // Account for group scale when calculating position
+      const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+      const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+      // Effective scale = frame scale * group scale
+      const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+      const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
       return {
-        left: groupCenter.x + (frame.left || 0),
-        top: groupCenter.y + (frame.top || 0),
+        left: groupCenter.x + relativeLeft,
+        top: groupCenter.y + relativeTop,
+        scaleX: effectiveScaleX,
+        scaleY: effectiveScaleY,
       };
     }
     return {
       left: frame.left || 0,
       top: frame.top || 0,
+      scaleX: frame.scaleX || 1,
+      scaleY: frame.scaleY || 1,
     };
   }, []);
 
@@ -110,17 +120,17 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Get absolute position (handles frames inside groups)
-                const absolutePos = getAbsoluteFramePosition(frame);
+                // Get absolute position and effective scale (handles frames inside groups)
+                const transform = getAbsoluteFrameTransform(frame);
 
                 // Create a temp frame object with absolute coordinates for clipping
                 const tempFrame = {
-                  left: absolutePos.left,
-                  top: absolutePos.top,
+                  left: transform.left,
+                  top: transform.top,
                   width: frame.width,
                   height: frame.height,
-                  scaleX: frame.scaleX,
-                  scaleY: frame.scaleY,
+                  scaleX: transform.scaleX,
+                  scaleY: transform.scaleY,
                 } as ImageFrame;
 
                 framedImage.applyFrameClip(tempFrame);
@@ -137,7 +147,7 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
         skipSave.current = false;
       }, reviver);
     }
-  }, [canUndo, canvas, historyIndex, findFrameById, getAbsoluteFramePosition]);
+  }, [canUndo, canvas, historyIndex, findFrameById, getAbsoluteFrameTransform]);
 
   const redo = useCallback(() => {
     if (canRedo()) {
@@ -162,17 +172,17 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Get absolute position (handles frames inside groups)
-                const absolutePos = getAbsoluteFramePosition(frame);
+                // Get absolute position and effective scale (handles frames inside groups)
+                const transform = getAbsoluteFrameTransform(frame);
 
                 // Create a temp frame object with absolute coordinates for clipping
                 const tempFrame = {
-                  left: absolutePos.left,
-                  top: absolutePos.top,
+                  left: transform.left,
+                  top: transform.top,
                   width: frame.width,
                   height: frame.height,
-                  scaleX: frame.scaleX,
-                  scaleY: frame.scaleY,
+                  scaleX: transform.scaleX,
+                  scaleY: transform.scaleY,
                 } as ImageFrame;
 
                 framedImage.applyFrameClip(tempFrame);
@@ -189,7 +199,7 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
         skipSave.current = false;
       }, reviver);
     }
-  }, [canvas, historyIndex, canRedo, findFrameById, getAbsoluteFramePosition]);
+  }, [canvas, historyIndex, canRedo, findFrameById, getAbsoluteFrameTransform]);
 
   return { 
     save,
