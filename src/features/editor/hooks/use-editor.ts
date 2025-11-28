@@ -2722,6 +2722,8 @@ export const useEditor = ({
       // Handle native fabric.Group (grouped objects)
       if (target?.type === "group") {
         const group = target as fabric.Group;
+        const groupCenter = group.getCenterPoint();
+
         group.forEachObject((obj) => {
           if (obj.type === "imageFrame") {
             const frame = obj as ImageFrame;
@@ -2729,26 +2731,30 @@ export const useEditor = ({
 
             if (image && !image.isInEditMode) {
               // Get absolute position by combining group and object transforms
-              const groupCenter = group.getCenterPoint();
-              const objLeft = (obj.left || 0);
-              const objTop = (obj.top || 0);
+              // Account for group scale when calculating relative position
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
 
-              const absoluteLeft = groupCenter.x + objLeft;
-              const absoluteTop = groupCenter.y + objTop;
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
 
-              // Create a temporary frame position for clipping
+              // Create a temporary frame position for clipping with effective scale
               const tempFrame = {
                 left: absoluteLeft,
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
 
               image.applyFrameClip(tempFrame);
@@ -2797,6 +2803,83 @@ export const useEditor = ({
           image.applyFrameClip(frame);
         }
       }
+
+      // Handle group scaling - sync all FramedImages inside
+      if (target?.type === "group") {
+        const group = target as fabric.Group;
+
+        // Store initial scale values at the START of scaling operation
+        // We use a flag to know if we've captured the initial state
+        if ((group as any)._scalingStarted !== true) {
+          (group as any)._scalingStarted = true;
+          (group as any)._initialGroupScaleX = group.scaleX || 1;
+          (group as any)._initialGroupScaleY = group.scaleY || 1;
+        }
+
+        // Calculate the scale ratio from the initial scale
+        const groupScaleRatioX = (group.scaleX || 1) / (group as any)._initialGroupScaleX;
+        const groupScaleRatioY = (group.scaleY || 1) / (group as any)._initialGroupScaleY;
+        const uniformGroupScaleRatio = Math.max(groupScaleRatioX, groupScaleRatioY);
+
+        const groupCenter = group.getCenterPoint();
+
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+
+            if (image && !image.isInEditMode) {
+              // Calculate absolute position of frame (accounting for group transform)
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+              // Use stored initial values for the image (before this scaling operation started)
+              const initialOffsetX = (image as any)._initialOffsetX ?? image.offsetX;
+              const initialOffsetY = (image as any)._initialOffsetY ?? image.offsetY;
+              const initialCustomScale = (image as any)._initialCustomScale ?? image.customScaleX;
+
+              // Store initial values if not already stored
+              if ((image as any)._initialOffsetX === undefined) {
+                (image as any)._initialOffsetX = image.offsetX;
+                (image as any)._initialOffsetY = image.offsetY;
+                (image as any)._initialCustomScale = image.customScaleX;
+              }
+
+              // Calculate scaled values from initial
+              const scaledOffsetX = initialOffsetX * groupScaleRatioX;
+              const scaledOffsetY = initialOffsetY * groupScaleRatioY;
+              const scaledCustomScale = initialCustomScale * uniformGroupScaleRatio;
+
+              image.set({
+                left: absoluteLeft + scaledOffsetX,
+                top: absoluteTop + scaledOffsetY,
+                scaleX: scaledCustomScale,
+                scaleY: scaledCustomScale,
+              });
+
+              // Create temp frame with absolute/effective values for clipping
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              } as ImageFrame;
+
+              image.applyFrameClip(tempFrame);
+            }
+          }
+        });
+
+        canvas.requestRenderAll();
+      }
     };
 
     const handleObjectModified = (e: fabric.IEvent) => {
@@ -2840,33 +2923,77 @@ export const useEditor = ({
         return;
       }
 
-      // Handle native fabric.Group - sync all frames after move
+      // Handle native fabric.Group - sync all frames after move/scale
       if (target?.type === "group") {
         const group = target as fabric.Group;
+        const groupCenter = group.getCenterPoint();
+
+        // Check if scaling occurred (flag was set during scaling)
+        const wasScaled = (group as any)._scalingStarted === true;
+
+        // Calculate the scale ratio from initial (only if scaling occurred)
+        let groupScaleRatioX = 1;
+        let groupScaleRatioY = 1;
+        let uniformGroupScaleRatio = 1;
+
+        if (wasScaled) {
+          const initialScaleX = (group as any)._initialGroupScaleX;
+          const initialScaleY = (group as any)._initialGroupScaleY;
+          groupScaleRatioX = (group.scaleX || 1) / initialScaleX;
+          groupScaleRatioY = (group.scaleY || 1) / initialScaleY;
+          uniformGroupScaleRatio = Math.max(groupScaleRatioX, groupScaleRatioY);
+        }
+
         group.forEachObject((obj) => {
           if (obj.type === "imageFrame") {
             const frame = obj as ImageFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
-              // Get absolute position
-              const groupCenter = group.getCenterPoint();
-              const absoluteLeft = groupCenter.x + (obj.left || 0);
-              const absoluteTop = groupCenter.y + (obj.top || 0);
+              // Only update scale values if scaling actually occurred
+              if (wasScaled) {
+                // Finalize the scaled values using initial stored values
+                const initialOffsetX = (image as any)._initialOffsetX ?? image.offsetX;
+                const initialOffsetY = (image as any)._initialOffsetY ?? image.offsetY;
+                const initialCustomScale = (image as any)._initialCustomScale ?? image.customScaleX;
+
+                // Permanently update the image's stored offset/scale
+                image.offsetX = initialOffsetX * groupScaleRatioX;
+                image.offsetY = initialOffsetY * groupScaleRatioY;
+                image.customScaleX = initialCustomScale * uniformGroupScaleRatio;
+                image.customScaleY = image.customScaleX; // Keep uniform
+
+                // Clear the temporary initial values
+                delete (image as any)._initialOffsetX;
+                delete (image as any)._initialOffsetY;
+                delete (image as any)._initialCustomScale;
+              }
+
+              // Calculate absolute position of frame (accounting for group transform)
+              const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
+              const relativeTop = (obj.top || 0) * (group.scaleY || 1);
+              const absoluteLeft = groupCenter.x + relativeLeft;
+              const absoluteTop = groupCenter.y + relativeTop;
+
+              // Effective frame scale = frame scale * group scale
+              const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+              const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
               image.set({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
+                scaleX: image.customScaleX,
+                scaleY: image.customScaleY,
               });
 
-              // Create temp frame for clipping
+              // Create temp frame with absolute/effective values for clipping
               const tempFrame = {
                 left: absoluteLeft,
                 top: absoluteTop,
                 width: frame.width,
                 height: frame.height,
-                scaleX: frame.scaleX,
-                scaleY: frame.scaleY,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
               } as ImageFrame;
 
               image.applyFrameClip(tempFrame);
@@ -2874,6 +3001,14 @@ export const useEditor = ({
             }
           }
         });
+
+        // Clear the group's scaling tracking only if scaling occurred
+        if (wasScaled) {
+          delete (group as any)._scalingStarted;
+          delete (group as any)._initialGroupScaleX;
+          delete (group as any)._initialGroupScaleY;
+        }
+
         canvas.requestRenderAll();
         return;
       }
