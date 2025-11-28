@@ -194,6 +194,7 @@ export interface SnapLine {
   x?: number;
   y?: number;
   orientation: "horizontal" | "vertical";
+  source?: "canvas" | "object"; // canvas = page snapping, object = object-to-object snapping
 }
 
 export interface EditorHookProps {

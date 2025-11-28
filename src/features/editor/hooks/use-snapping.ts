@@ -38,6 +38,9 @@ export const useSnapping = ({
     // Store snap line info for display
     xSnapLine: number | null;
     ySnapLine: number | null;
+    // Store the source type for correct line styling
+    xSnapSource: "canvas" | "object" | null;
+    ySnapSource: "canvas" | "object" | null;
   } | null>(null);
 
   // Track shift key state globally
@@ -163,6 +166,7 @@ export const useSnapping = ({
           snapLines.push({
             y: targetBounds.top + targetBounds.height / 2,
             orientation: "horizontal",
+            source: "canvas",
           });
         } else {
           // Constrain to vertical movement
@@ -173,6 +177,7 @@ export const useSnapping = ({
           snapLines.push({
             x: targetBounds.left + targetBounds.width / 2,
             orientation: "vertical",
+            source: "canvas",
           });
         }
 
@@ -207,7 +212,7 @@ export const useSnapping = ({
             snappedLeft = stickyState.snappedLeft;
             xSnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ x: stickyState.xSnapLine, orientation: "vertical" });
+            snapLines.push({ x: stickyState.xSnapLine, orientation: "vertical", source: stickyState.xSnapSource || "canvas" });
           } else {
             // User moved far enough - break out
             stickyState.snappedLeft = null;
@@ -223,7 +228,7 @@ export const useSnapping = ({
             snappedTop = stickyState.snappedTop;
             ySnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ y: stickyState.ySnapLine, orientation: "horizontal" });
+            snapLines.push({ y: stickyState.ySnapLine, orientation: "horizontal", source: stickyState.ySnapSource || "canvas" });
           } else {
             // User moved far enough - break out
             stickyState.snappedTop = null;
@@ -252,17 +257,19 @@ export const useSnapping = ({
             snappedLeft = (target.left || 0) + offset;
             xSnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ x: workspaceBounds.left + workspaceBounds.width / 2, orientation: "vertical" });
+            snapLines.push({ x: workspaceBounds.left + workspaceBounds.width / 2, orientation: "vertical", source: "canvas" });
 
             // Store snapped position
             if (!snappedStateRef.current) {
               snappedStateRef.current = {
                 targetId,
                 snappedLeft, snappedTop: null, xSnapLine: workspaceBounds.left + workspaceBounds.width / 2, ySnapLine: null,
+                xSnapSource: "canvas", ySnapSource: null,
               };
             } else {
               snappedStateRef.current.snappedLeft = snappedLeft;
               snappedStateRef.current.xSnapLine = workspaceBounds.left + workspaceBounds.width / 2;
+              snappedStateRef.current.xSnapSource = "canvas";
             }
           }
         }
@@ -275,17 +282,19 @@ export const useSnapping = ({
             snappedTop = (target.top || 0) + offset;
             ySnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ y: workspaceBounds.top + workspaceBounds.height / 2, orientation: "horizontal" });
+            snapLines.push({ y: workspaceBounds.top + workspaceBounds.height / 2, orientation: "horizontal", source: "canvas" });
 
             // Store snapped position
             if (!snappedStateRef.current) {
               snappedStateRef.current = {
                 targetId,
                 snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: workspaceBounds.top + workspaceBounds.height / 2,
+                xSnapSource: null, ySnapSource: "canvas",
               };
             } else {
               snappedStateRef.current.snappedTop = snappedTop;
               snappedStateRef.current.ySnapLine = workspaceBounds.top + workspaceBounds.height / 2;
+              snappedStateRef.current.ySnapSource = "canvas";
             }
           }
         }
@@ -299,13 +308,14 @@ export const useSnapping = ({
           snappedLeft = (target.left || 0) + offset;
           xSnapped = true;
           hasEdgeSnap = true;
-          snapLines.push({ x: workspaceBounds.left, orientation: "vertical" });
+          snapLines.push({ x: workspaceBounds.left, orientation: "vertical", source: "canvas" });
 
           if (!snappedStateRef.current) {
-            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: workspaceBounds.left, ySnapLine: null };
+            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: workspaceBounds.left, ySnapLine: null, xSnapSource: "canvas", ySnapSource: null };
           } else {
             snappedStateRef.current.snappedLeft = snappedLeft;
             snappedStateRef.current.xSnapLine = workspaceBounds.left;
+            snappedStateRef.current.xSnapSource = "canvas";
           }
         }
 
@@ -316,13 +326,14 @@ export const useSnapping = ({
           xSnapped = true;
           hasEdgeSnap = true;
           const snapX = workspaceBounds.left + workspaceBounds.width;
-          snapLines.push({ x: snapX, orientation: "vertical" });
+          snapLines.push({ x: snapX, orientation: "vertical", source: "canvas" });
 
           if (!snappedStateRef.current) {
-            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: snapX, ySnapLine: null };
+            snappedStateRef.current = { targetId, snappedLeft, snappedTop: null, xSnapLine: snapX, ySnapLine: null, xSnapSource: "canvas", ySnapSource: null };
           } else {
             snappedStateRef.current.snappedLeft = snappedLeft;
             snappedStateRef.current.xSnapLine = snapX;
+            snappedStateRef.current.xSnapSource = "canvas";
           }
         }
 
@@ -332,13 +343,14 @@ export const useSnapping = ({
           snappedTop = (target.top || 0) + offset;
           ySnapped = true;
           hasEdgeSnap = true;
-          snapLines.push({ y: workspaceBounds.top, orientation: "horizontal" });
+          snapLines.push({ y: workspaceBounds.top, orientation: "horizontal", source: "canvas" });
 
           if (!snappedStateRef.current) {
-            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: workspaceBounds.top };
+            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: workspaceBounds.top, xSnapSource: null, ySnapSource: "canvas" };
           } else {
             snappedStateRef.current.snappedTop = snappedTop;
             snappedStateRef.current.ySnapLine = workspaceBounds.top;
+            snappedStateRef.current.ySnapSource = "canvas";
           }
         }
 
@@ -349,13 +361,14 @@ export const useSnapping = ({
           ySnapped = true;
           hasEdgeSnap = true;
           const snapY = workspaceBounds.top + workspaceBounds.height;
-          snapLines.push({ y: snapY, orientation: "horizontal" });
+          snapLines.push({ y: snapY, orientation: "horizontal", source: "canvas" });
 
           if (!snappedStateRef.current) {
-            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: snapY };
+            snappedStateRef.current = { targetId, snappedLeft: null, snappedTop, xSnapLine: null, ySnapLine: snapY, xSnapSource: null, ySnapSource: "canvas" };
           } else {
             snappedStateRef.current.snappedTop = snappedTop;
             snappedStateRef.current.ySnapLine = snapY;
+            snappedStateRef.current.ySnapSource = "canvas";
           }
         }
       }
@@ -435,7 +448,7 @@ export const useSnapping = ({
             snappedLeft = (target.left || 0) + closest.offset;
             xSnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ x: closest.snapX, orientation: "vertical" });
+            snapLines.push({ x: closest.snapX, orientation: "vertical", source: "object" });
 
             // Store the snapped position for sticky state
             if (!snappedStateRef.current) {
@@ -445,10 +458,13 @@ export const useSnapping = ({
                 snappedTop: null,
                 xSnapLine: closest.snapX,
                 ySnapLine: null,
+                xSnapSource: "object",
+                ySnapSource: null,
               };
             } else {
               snappedStateRef.current.snappedLeft = snappedLeft;
               snappedStateRef.current.xSnapLine = closest.snapX;
+              snappedStateRef.current.xSnapSource = "object";
             }
           }
         }
@@ -466,7 +482,7 @@ export const useSnapping = ({
             snappedTop = (target.top || 0) + closest.offset;
             ySnapped = true;
             hasEdgeSnap = true;
-            snapLines.push({ y: closest.snapY, orientation: "horizontal" });
+            snapLines.push({ y: closest.snapY, orientation: "horizontal", source: "object" });
 
             // Store the snapped position for sticky state
             if (!snappedStateRef.current) {
@@ -476,10 +492,13 @@ export const useSnapping = ({
                 snappedTop: snappedTop,
                 xSnapLine: null,
                 ySnapLine: closest.snapY,
+                xSnapSource: null,
+                ySnapSource: "object",
               };
             } else {
               snappedStateRef.current.snappedTop = snappedTop;
               snappedStateRef.current.ySnapLine = closest.snapY;
+              snappedStateRef.current.ySnapSource = "object";
             }
           }
         }
