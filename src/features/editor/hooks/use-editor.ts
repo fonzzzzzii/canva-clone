@@ -928,6 +928,35 @@ const buildEditor = ({
         }
       };
 
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+      };
+
       // Align to page - works with single or multiple objects
       if (alignToPage) {
         const workspace = getFocusedWorkspace();
@@ -995,12 +1024,16 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          const objWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
-          // Object uses center origin, so set center to targetLeft + width/2
-          const newLeft = targetLeft + objWidth / 2;
-          activeObj.set({ left: newLeft });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const deltaX = targetLeft - bounds.left;
+          activeObj.set({ left: (activeObj.left || 0) + deltaX });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1068,6 +1101,35 @@ const buildEditor = ({
         }
       };
 
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+      };
+
       // Align to page center
       if (alignToPage) {
         const workspace = getFocusedWorkspace();
@@ -1132,10 +1194,17 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          // Single object - set center to workspace center
-          activeObj.set({ left: workspaceCenter.x });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const boundsCenterX = bounds.left + bounds.width / 2;
+          const deltaX = workspaceCenter.x - boundsCenterX;
+          activeObj.set({ left: (activeObj.left || 0) + deltaX });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1205,6 +1274,35 @@ const buildEditor = ({
         }
       };
 
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+      };
+
       // Align to page
       if (alignToPage) {
         const workspace = getFocusedWorkspace();
@@ -1271,12 +1369,17 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          const objWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
-          // Object's right edge should be at targetRight
-          const newLeft = targetRight - objWidth / 2;
-          activeObj.set({ left: newLeft });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const rightEdge = bounds.left + bounds.width;
+          const deltaX = targetRight - rightEdge;
+          activeObj.set({ left: (activeObj.left || 0) + deltaX });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1342,6 +1445,35 @@ const buildEditor = ({
             image.setCoords();
           }
         }
+      };
+
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
       };
 
       // Align to page
@@ -1410,12 +1542,16 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          const objHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
-          // Object's top edge should be at targetTop
-          const newTop = targetTop + objHeight / 2;
-          activeObj.set({ top: newTop });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const deltaY = targetTop - bounds.top;
+          activeObj.set({ top: (activeObj.top || 0) + deltaY });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1483,6 +1619,35 @@ const buildEditor = ({
         }
       };
 
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+      };
+
       // Align to page center
       if (alignToPage) {
         const workspace = getFocusedWorkspace();
@@ -1547,10 +1712,17 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          // Single object - set center to workspace center
-          activeObj.set({ top: workspaceCenter.y });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const boundsCenterY = bounds.top + bounds.height / 2;
+          const deltaY = workspaceCenter.y - boundsCenterY;
+          activeObj.set({ top: (activeObj.top || 0) + deltaY });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1620,6 +1792,35 @@ const buildEditor = ({
         }
       };
 
+      // Sync all ImageFrames inside a group with their linked images
+      const syncGroupImages = (group: fabric.Group) => {
+        const groupCenter = group.getCenterPoint();
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            if (image && !image.isInEditMode) {
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+      };
+
       // Align to page
       if (alignToPage) {
         const workspace = getFocusedWorkspace();
@@ -1686,12 +1887,17 @@ const buildEditor = ({
 
           canvas.requestRenderAll();
         } else if (activeObj.name !== "clip" && activeObj.type !== "framedImage") {
-          const objHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
-          // Object's bottom edge should be at targetBottom
-          const newTop = targetBottom - objHeight / 2;
-          activeObj.set({ top: newTop });
+          // Use bounding rect with absolute coordinates (ignores viewport transform)
+          const bounds = activeObj.getBoundingRect(true, true);
+          const bottomEdge = bounds.top + bounds.height;
+          const deltaY = targetBottom - bottomEdge;
+          activeObj.set({ top: (activeObj.top || 0) + deltaY });
           activeObj.setCoords();
           syncLinkedImage(activeObj);
+          // If it's a group, sync all ImageFrames inside
+          if (activeObj.type === "group") {
+            syncGroupImages(activeObj as fabric.Group);
+          }
         }
 
         canvas.requestRenderAll();
@@ -1909,52 +2115,46 @@ const buildEditor = ({
       return pageCount;
     },
 
-    // Grouping
+    // Grouping - Native fabric.Group
     groupSelected: () => {
-      const objects = canvas.getActiveObjects().filter(
+      const activeObj = canvas.getActiveObject();
+      if (!activeObj || activeObj.type !== "activeSelection") return;
+
+      const selection = activeObj as fabric.ActiveSelection;
+      // Filter out workspace clips and FramedImages (they will stay outside group, synced via frame movement)
+      let objects = selection.getObjects().filter(
         (obj) => obj.name !== "clip" && !obj.name?.startsWith("clip-page-") && obj.type !== "framedImage"
       );
       if (objects.length < 2) return;
 
-      const groupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      objects.forEach((obj) => {
-        (obj as any).groupId = groupId;
+      // Recreate selection with only the filtered objects (no FramedImages)
+      canvas.discardActiveObject();
+      const newSelection = new fabric.ActiveSelection(objects, { canvas });
+      canvas.setActiveObject(newSelection);
 
-        // If it's an ImageFrame, also set groupId on linked image
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
-          const linkedImage = frame.getLinkedImage(canvas);
-          if (linkedImage) {
-            (linkedImage as any).groupId = groupId;
-          }
-        }
-      });
+      // Convert ActiveSelection to Group
+      const group = (canvas.getActiveObject() as fabric.ActiveSelection).toGroup();
+      canvas.setActiveObject(group);
       canvas.requestRenderAll();
       save();
     },
 
     ungroupSelected: () => {
-      const objects = canvas.getActiveObjects();
-      objects.forEach((obj) => {
-        (obj as any).groupId = undefined;
+      const activeObj = canvas.getActiveObject();
+      if (!activeObj || activeObj.type !== "group") return;
 
-        // If it's an ImageFrame, also clear groupId on linked image
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
-          const linkedImage = frame.getLinkedImage(canvas);
-          if (linkedImage) {
-            (linkedImage as any).groupId = undefined;
-          }
-        }
-      });
+      const group = activeObj as fabric.Group;
+
+      // Convert Group back to ActiveSelection
+      const selection = group.toActiveSelection();
+      canvas.setActiveObject(selection);
       canvas.requestRenderAll();
       save();
     },
 
     isGrouped: () => {
-      const objects = canvas.getActiveObjects();
-      if (objects.length === 0) return false;
-      return objects.some((obj) => (obj as any).groupId);
+      const activeObj = canvas.getActiveObject();
+      return activeObj?.type === "group";
     },
 
     // Lock/Unlock
@@ -2190,27 +2390,28 @@ export const useEditor = ({
     );
   }, [canvas]);
 
+  // Grouping callbacks for hotkeys (use canvas directly since editor not yet available)
   const groupSelectedCallback = useCallback(() => {
     if (!canvas) return;
 
-    const objects = canvas.getActiveObjects().filter(
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== "activeSelection") return;
+
+    const selection = activeObj as fabric.ActiveSelection;
+    // Filter out workspace clips and FramedImages (they will stay outside group, synced via frame movement)
+    let objects = selection.getObjects().filter(
       (obj) => obj.name !== "clip" && !obj.name?.startsWith("clip-page-") && obj.type !== "framedImage"
     );
     if (objects.length < 2) return;
 
-    const groupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    objects.forEach((obj) => {
-      (obj as any).groupId = groupId;
+    // Recreate selection with only the filtered objects (no FramedImages)
+    canvas.discardActiveObject();
+    const newSelection = new fabric.ActiveSelection(objects, { canvas });
+    canvas.setActiveObject(newSelection);
 
-      // If it's an ImageFrame, also set groupId on linked image
-      if (obj.type === "imageFrame") {
-        const frame = obj as ImageFrame;
-        const linkedImage = frame.getLinkedImage(canvas);
-        if (linkedImage) {
-          (linkedImage as any).groupId = groupId;
-        }
-      }
-    });
+    // Convert ActiveSelection to Group
+    const group = (canvas.getActiveObject() as fabric.ActiveSelection).toGroup();
+    canvas.setActiveObject(group);
     canvas.requestRenderAll();
     save();
   }, [canvas, save]);
@@ -2218,19 +2419,14 @@ export const useEditor = ({
   const ungroupSelectedCallback = useCallback(() => {
     if (!canvas) return;
 
-    const objects = canvas.getActiveObjects();
-    objects.forEach((obj) => {
-      (obj as any).groupId = undefined;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== "group") return;
 
-      // If it's an ImageFrame, also clear groupId on linked image
-      if (obj.type === "imageFrame") {
-        const frame = obj as ImageFrame;
-        const linkedImage = frame.getLinkedImage(canvas);
-        if (linkedImage) {
-          (linkedImage as any).groupId = undefined;
-        }
-      }
-    });
+    const group = activeObj as fabric.Group;
+
+    // Convert Group back to ActiveSelection
+    const selection = group.toActiveSelection();
+    canvas.setActiveObject(selection);
     canvas.requestRenderAll();
     save();
   }, [canvas, save]);
@@ -2273,45 +2469,12 @@ export const useEditor = ({
   });
 
   // Handle FramedImage selection state to show/hide border
-  // Also handle group selection expansion
   useEffect(() => {
     if (!canvas) return;
-
-    // Flag to prevent infinite loop when expanding group selection
-    let isExpandingGroupSelection = false;
 
     const handleSelectionCreated = (e: fabric.IEvent) => {
       const selected = e.selected;
       if (!selected || selected.length === 0) return;
-
-      // Handle group selection expansion (only for single object selection)
-      if (selected.length === 1 && !isExpandingGroupSelection) {
-        const selectedObj = selected[0];
-        const groupId = (selectedObj as any).groupId;
-
-        if (groupId) {
-          // Find all objects with the same groupId
-          const groupObjects = canvas.getObjects().filter((obj) => {
-            if ((obj as any).groupId !== groupId) return false;
-            // Skip framedImages - we only want to select the frames
-            if (obj.type === "framedImage") return false;
-            // Skip non-selectable objects
-            if (!obj.selectable) return false;
-            return true;
-          });
-
-          // If there are multiple objects in the group, create an ActiveSelection
-          if (groupObjects.length > 1) {
-            isExpandingGroupSelection = true;
-            canvas.discardActiveObject();
-            const selection = new fabric.ActiveSelection(groupObjects, { canvas });
-            canvas.setActiveObject(selection);
-            canvas.requestRenderAll();
-            isExpandingGroupSelection = false;
-            return;
-          }
-        }
-      }
 
       // Handle FramedImage border display
       selected.forEach((obj: any) => {
@@ -2512,9 +2675,6 @@ export const useEditor = ({
       }
     };
 
-    // Track previous positions for group movement delta calculation
-    const previousPositions = new Map<fabric.Object, { left: number; top: number }>();
-
     const handleObjectMoving = (e: fabric.IEvent) => {
       const target = e.target;
 
@@ -2559,64 +2719,50 @@ export const useEditor = ({
         return;
       }
 
-      // Handle single object movement - check for groupId
-      if (target) {
-        const groupId = (target as any).groupId;
+      // Handle native fabric.Group (grouped objects)
+      if (target?.type === "group") {
+        const group = target as fabric.Group;
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
-        if (groupId) {
-          // Get previous position (or initialize it)
-          let prevPos = previousPositions.get(target);
-          if (!prevPos) {
-            prevPos = { left: target.left || 0, top: target.top || 0 };
-            previousPositions.set(target, prevPos);
-          }
+            if (image && !image.isInEditMode) {
+              // Get absolute position by combining group and object transforms
+              const groupCenter = group.getCenterPoint();
+              const objLeft = (obj.left || 0);
+              const objTop = (obj.top || 0);
 
-          // Calculate delta from previous position
-          const deltaX = (target.left || 0) - prevPos.left;
-          const deltaY = (target.top || 0) - prevPos.top;
+              const absoluteLeft = groupCenter.x + objLeft;
+              const absoluteTop = groupCenter.y + objTop;
 
-          // Update previous position
-          prevPos.left = target.left || 0;
-          prevPos.top = target.top || 0;
-
-          // Move all other objects in the same group
-          if (deltaX !== 0 || deltaY !== 0) {
-            const allObjects = canvas.getObjects();
-            allObjects.forEach((obj) => {
-              if (obj === target) return;
-              if ((obj as any).groupId !== groupId) return;
-
-              // Skip framedImages - they'll be moved by their linked frame
-              if (obj.type === "framedImage") return;
-
-              obj.set({
-                left: (obj.left || 0) + deltaX,
-                top: (obj.top || 0) + deltaY,
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
               });
-              obj.setCoords();
 
-              // If it's an ImageFrame, sync the linked image
-              if (obj.type === "imageFrame") {
-                syncFrameImage(obj as ImageFrame);
-              }
-            });
+              // Create a temporary frame position for clipping
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
           }
-        }
-
-        // Handle single frame selection
-        if (target.type === "imageFrame") {
-          syncFrameImage(target as ImageFrame);
-        }
+        });
+        return;
       }
-    };
 
-    // Clear previous positions when object is deselected or modified
-    const handleSelectionCleared = () => {
-      previousPositions.clear();
-    };
-
-    const handleObjectModifiedForGroup = () => {
-      previousPositions.clear();
+      // Handle single frame selection
+      if (target?.type === "imageFrame") {
+        syncFrameImage(target as ImageFrame);
+      }
     };
 
     const handleObjectScaling = (e: fabric.IEvent) => {
@@ -2694,6 +2840,44 @@ export const useEditor = ({
         return;
       }
 
+      // Handle native fabric.Group - sync all frames after move
+      if (target?.type === "group") {
+        const group = target as fabric.Group;
+        group.forEachObject((obj) => {
+          if (obj.type === "imageFrame") {
+            const frame = obj as ImageFrame;
+            const image = frame.getLinkedImage(canvas) as FramedImage | null;
+
+            if (image && !image.isInEditMode) {
+              // Get absolute position
+              const groupCenter = group.getCenterPoint();
+              const absoluteLeft = groupCenter.x + (obj.left || 0);
+              const absoluteTop = groupCenter.y + (obj.top || 0);
+
+              image.set({
+                left: absoluteLeft + image.offsetX,
+                top: absoluteTop + image.offsetY,
+              });
+
+              // Create temp frame for clipping
+              const tempFrame = {
+                left: absoluteLeft,
+                top: absoluteTop,
+                width: frame.width,
+                height: frame.height,
+                scaleX: frame.scaleX,
+                scaleY: frame.scaleY,
+              } as ImageFrame;
+
+              image.applyFrameClip(tempFrame);
+              image.setCoords();
+            }
+          }
+        });
+        canvas.requestRenderAll();
+        return;
+      }
+
       // Handle single frame
       if (target?.type === "imageFrame") {
         const frame = target as ImageFrame;
@@ -2735,15 +2919,11 @@ export const useEditor = ({
     canvas.on("object:moving", handleObjectMoving);
     canvas.on("object:scaling", handleObjectScaling);
     canvas.on("object:modified", handleObjectModified);
-    canvas.on("object:modified", handleObjectModifiedForGroup);
-    canvas.on("selection:cleared", handleSelectionCleared);
 
     return () => {
       canvas.off("object:moving", handleObjectMoving);
       canvas.off("object:scaling", handleObjectScaling);
       canvas.off("object:modified", handleObjectModified);
-      canvas.off("object:modified", handleObjectModifiedForGroup);
-      canvas.off("selection:cleared", handleSelectionCleared);
     };
   }, [canvas]);
 

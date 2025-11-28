@@ -21,7 +21,6 @@ export const JSON_KEYS = [
   "imageOffsetX",
   "imageOffsetY",
   "fitMode",
-  "groupId",
   "locked",
 ];
 

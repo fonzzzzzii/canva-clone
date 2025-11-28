@@ -26,6 +26,41 @@ export const useLoadState = ({
     if (!initialized.current && initialState?.current && canvas) {
       const data = JSON.parse(initialState.current);
 
+      // Helper to find frame by ID, including inside groups
+      const findFrameById = (frameId: string): ImageFrame | undefined => {
+        // First check top-level objects
+        for (const obj of canvas.getObjects()) {
+          if (obj.type === "imageFrame" && (obj as ImageFrame).id === frameId) {
+            return obj as ImageFrame;
+          }
+          // Check inside groups
+          if (obj.type === "group") {
+            const group = obj as fabric.Group;
+            const foundInGroup = group.getObjects().find(
+              (o) => o.type === "imageFrame" && (o as ImageFrame).id === frameId
+            ) as ImageFrame | undefined;
+            if (foundInGroup) return foundInGroup;
+          }
+        }
+        return undefined;
+      };
+
+      // Helper to get absolute frame position (accounting for group membership)
+      const getAbsoluteFramePosition = (frame: ImageFrame) => {
+        if (frame.group) {
+          const group = frame.group;
+          const groupCenter = group.getCenterPoint();
+          return {
+            left: groupCenter.x + (frame.left || 0),
+            top: groupCenter.y + (frame.top || 0),
+          };
+        }
+        return {
+          left: frame.left || 0,
+          top: frame.top || 0,
+        };
+      };
+
       // Custom reviver to reapply clipPaths after loading
       const reviver = (obj: any, fabricObj: fabric.Object) => {
         if (fabricObj.type === "framedImage") {
@@ -35,12 +70,23 @@ export const useLoadState = ({
           if (linkedFrameId) {
             // Find the linked frame and reapply clip after all objects are loaded
             setTimeout(() => {
-              const frame = canvas.getObjects().find(
-                (o) => o.type === "imageFrame" && (o as ImageFrame).id === linkedFrameId
-              ) as ImageFrame | undefined;
+              const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                framedImage.applyFrameClip(frame);
+                // Get absolute position (handles frames inside groups)
+                const absolutePos = getAbsoluteFramePosition(frame);
+
+                // Create a temp frame object with absolute coordinates for clipping
+                const tempFrame = {
+                  left: absolutePos.left,
+                  top: absolutePos.top,
+                  width: frame.width,
+                  height: frame.height,
+                  scaleX: frame.scaleX,
+                  scaleY: frame.scaleY,
+                } as ImageFrame;
+
+                framedImage.applyFrameClip(tempFrame);
                 canvas.requestRenderAll();
               }
             }, 0);
