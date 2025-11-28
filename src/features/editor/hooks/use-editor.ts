@@ -356,28 +356,50 @@ const buildEditor = ({
         }
       });
     },
-    addImage: (value: string) => {
-      console.log("[AddImage Debug] addImage called with URL:", value);
+    addImage: (value: string, options?: { left?: number; top?: number }) => {
+      console.log("[AddImage Debug] addImage called with URL:", value, "options:", options);
       fabric.Image.fromURL(
         value,
         (loadedImage) => {
           console.log("[AddImage Debug] Image loaded from URL, creating frame+image pair...");
           const workspace = getWorkspace();
 
-          // Determine default frame size
-          const defaultFrameSize = 400;
-          const frameWidth = Math.min(workspace?.width || defaultFrameSize, defaultFrameSize);
-          const frameHeight = Math.min(workspace?.height || defaultFrameSize, defaultFrameSize);
+          // Use original image aspect ratio
+          const imgWidth = loadedImage.width || 1;
+          const imgHeight = loadedImage.height || 1;
+
+          // Determine frame size based on image aspect ratio
+          // Max dimension is 400px or workspace size, whichever is smaller
+          const maxSize = 400;
+          const maxWidth = Math.min(workspace?.width || maxSize, maxSize);
+          const maxHeight = Math.min(workspace?.height || maxSize, maxSize);
+
+          // Scale to fit within max bounds while preserving aspect ratio
+          const scaleToFit = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+          const frameWidth = imgWidth * scaleToFit;
+          const frameHeight = imgHeight * scaleToFit;
 
           // Generate unique IDs for linking
           const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const frameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-          // Get workspace center for positioning
-          const workspaceCenter = workspace ? {
-            x: (workspace.left || 0) + (workspace.width || 0) / 2,
-            y: (workspace.top || 0) + (workspace.height || 0) / 2,
-          } : { x: 300, y: 300 };
+          // Determine position - use provided coordinates or center on workspace
+          let posX: number;
+          let posY: number;
+
+          if (options?.left !== undefined && options?.top !== undefined) {
+            // Use provided position (already in canvas coordinates)
+            posX = options.left;
+            posY = options.top;
+          } else {
+            // Center on workspace
+            posX = workspace
+              ? (workspace.left || 0) + (workspace.width || 0) / 2
+              : 300;
+            posY = workspace
+              ? (workspace.top || 0) + (workspace.height || 0) / 2
+              : 300;
+          }
 
           // Create the frame (visible, selectable)
           const frame = new ImageFrame({
@@ -385,8 +407,8 @@ const buildEditor = ({
             linkedImageId: imageId,
             width: frameWidth,
             height: frameHeight,
-            left: workspaceCenter.x,
-            top: workspaceCenter.y,
+            left: posX,
+            top: posY,
             originX: "center",
             originY: "center",
             fill: "transparent",
@@ -398,13 +420,11 @@ const buildEditor = ({
             id: imageId,
             linkedFrameId: frameId,
             imageUrl: value,
-            left: workspaceCenter.x,
-            top: workspaceCenter.y,
+            left: posX,
+            top: posY,
           });
 
-          // Scale image to cover the frame
-          const imgWidth = loadedImage.width || 1;
-          const imgHeight = loadedImage.height || 1;
+          // Scale image to cover the frame (since frame matches aspect ratio, scale is 1:1)
           const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight);
           framedImage.scale(scale);
 
@@ -421,19 +441,22 @@ const buildEditor = ({
             frameWidth,
             frameHeight,
             imageScale: scale,
+            position: { x: posX, y: posY },
           });
 
           // Add both to canvas - image first (behind), then frame (on top for selection)
           canvas.add(framedImage);
           canvas.add(frame);
 
-          // Center on workspace
-          canvas.centerObject(frame);
-          framedImage.set({
-            left: frame.left,
-            top: frame.top,
-          });
-          framedImage.applyFrameClip(frame);
+          // If no position was provided, center on workspace
+          if (options?.left === undefined || options?.top === undefined) {
+            canvas.centerObject(frame);
+            framedImage.set({
+              left: frame.left,
+              top: frame.top,
+            });
+            framedImage.applyFrameClip(frame);
+          }
 
           // Select the frame
           canvas.setActiveObject(frame);

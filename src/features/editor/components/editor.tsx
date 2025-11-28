@@ -286,8 +286,10 @@ export const Editor = ({ initialData }: EditorProps) => {
             onDrop={(e) => {
               e.preventDefault();
               const imageUrl = e.dataTransfer.getData("image-url");
-              if (imageUrl && editor) {
-                editor.addImage(imageUrl);
+              if (imageUrl && editor?.canvas) {
+                // Convert to canvas coordinates (accounting for zoom/pan)
+                const point = editor.canvas.getPointer({ clientX: e.clientX, clientY: e.clientY } as MouseEvent);
+                editor.addImage(imageUrl, { left: point.x, top: point.y });
               }
             }}
           >

@@ -260,7 +260,7 @@ export interface Editor {
   onCopy: () => void;
   onPaste: () => void;
   changeImageFilter: (value: string) => void;
-  addImage: (value: string) => void;
+  addImage: (value: string, options?: { left?: number; top?: number }) => void;
   delete: () => void;
   changeFontSize: (value: number) => void;
   getActiveFontSize: () => number;
