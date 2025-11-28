@@ -78,14 +78,13 @@ export const Toolbar = ({
     fontSize: initialFontSize,
   });
 
-  // Align to page is auto-enabled when single object selected
+  // Align to page state - preserved across alignments
   const selectedCount = editor?.selectedObjects?.length || 0;
-  const [alignToPage, setAlignToPage] = useState(selectedCount === 1);
+  const [alignToPage, setAlignToPage] = useState(true);
 
-  // Update alignToPage when selection changes
-  useEffect(() => {
-    setAlignToPage(selectedCount === 1);
-  }, [selectedCount]);
+  // For single object selection, always align to page (checkbox disabled but checked)
+  const isSingleSelection = selectedCount === 1;
+  const effectiveAlignToPage = isSingleSelection ? true : alignToPage;
 
   const selectedObject = editor?.selectedObjects[0];
   const selectedObjectType = editor?.selectedObjects[0]?.type;
@@ -491,13 +490,17 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center gap-1 px-2">
             <Checkbox
               id="align-to-page"
-              checked={alignToPage}
+              checked={effectiveAlignToPage}
               onCheckedChange={(checked) => setAlignToPage(checked === true)}
+              disabled={isSingleSelection}
               className="size-3.5"
             />
             <label
               htmlFor="align-to-page"
-              className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+              className={cn(
+                "text-xs text-muted-foreground select-none whitespace-nowrap",
+                isSingleSelection ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              )}
             >
               To page
             </label>
@@ -505,7 +508,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align left" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignLeft(alignToPage)}
+                onClick={() => editor?.alignLeft(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -516,7 +519,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align center horizontal" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignCenterHorizontal(alignToPage)}
+                onClick={() => editor?.alignCenterHorizontal(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -527,7 +530,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align right" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignRight(alignToPage)}
+                onClick={() => editor?.alignRight(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -538,7 +541,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align top" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignTop(alignToPage)}
+                onClick={() => editor?.alignTop(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -549,7 +552,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align middle vertical" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignCenterVertical(alignToPage)}
+                onClick={() => editor?.alignCenterVertical(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
@@ -560,7 +563,7 @@ export const Toolbar = ({
           <div className="flex items-center h-full justify-center">
             <Hint label="Align bottom" side="bottom" sideOffset={5}>
               <Button
-                onClick={() => editor?.alignBottom(alignToPage)}
+                onClick={() => editor?.alignBottom(effectiveAlignToPage)}
                 size="icon"
                 variant="ghost"
               >
