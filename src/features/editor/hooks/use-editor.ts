@@ -3582,6 +3582,136 @@ export const useEditor = ({
     save();
   }, [canvas, save]);
 
+  // Pan mode callbacks for hotkeys
+  const enablePanModeCallback = useCallback(() => {
+    if (!canvas) return;
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    panModeRef.current = true;
+    canvas.defaultCursor = 'grab';
+    canvas.hoverCursor = 'grab';
+    canvas.selection = false;
+    canvas.forEachObject((obj) => {
+      obj.selectable = false;
+      obj.evented = false;
+    });
+  }, [canvas]);
+
+  const disablePanModeCallback = useCallback(() => {
+    if (!canvas) return;
+    panModeRef.current = false;
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'move';
+    canvas.selection = true;
+    canvas.forEachObject((obj) => {
+      if (obj.name === 'clip' || obj.name?.startsWith('clip-page-')) {
+        return;
+      }
+      obj.selectable = true;
+      obj.evented = true;
+    });
+  }, [canvas]);
+
+  const isPanModeCallback = useCallback(() => {
+    return panModeRef.current;
+  }, []);
+
+  // Drawing mode callbacks for hotkeys
+  const enableDrawingModeCallback = useCallback(() => {
+    if (!canvas) return;
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.width = strokeWidth;
+    canvas.freeDrawingBrush.color = strokeColor;
+  }, [canvas, strokeWidth, strokeColor]);
+
+  const disableDrawingModeCallback = useCallback(() => {
+    if (!canvas) return;
+    canvas.isDrawingMode = false;
+  }, [canvas]);
+
+  // Shape creation callbacks for hotkeys
+  const addRectangleCallback = useCallback(() => {
+    if (!canvas) return;
+    // Find the focused workspace to center the shape
+    const workspaces = canvas.getObjects().filter(
+      (obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-")
+    );
+    const focusedWs = workspaces.find((ws: any) => ws.pageNumber === focusedPageNumber) || workspaces[0];
+    const wsCenter = focusedWs?.getCenterPoint();
+    const canvasCenter = canvas.getCenter();
+    const centerX = wsCenter?.x ?? canvasCenter.left;
+    const centerY = wsCenter?.y ?? canvasCenter.top;
+
+    const rect = new fabric.Rect({
+      ...RECTANGLE_OPTIONS,
+      fill: fillColor,
+      stroke: strokeColor,
+      strokeWidth: strokeWidth,
+      left: centerX,
+      top: centerY,
+      originX: 'center',
+      originY: 'center',
+    });
+    canvas.add(rect);
+    canvas.setActiveObject(rect);
+    canvas.requestRenderAll();
+    save();
+  }, [canvas, fillColor, strokeColor, strokeWidth, focusedPageNumber, save]);
+
+  const addCircleCallback = useCallback(() => {
+    if (!canvas) return;
+    const workspaces = canvas.getObjects().filter(
+      (obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-")
+    );
+    const focusedWs = workspaces.find((ws: any) => ws.pageNumber === focusedPageNumber) || workspaces[0];
+    const wsCenter = focusedWs?.getCenterPoint();
+    const canvasCenter = canvas.getCenter();
+    const centerX = wsCenter?.x ?? canvasCenter.left;
+    const centerY = wsCenter?.y ?? canvasCenter.top;
+
+    const circle = new fabric.Circle({
+      ...CIRCLE_OPTIONS,
+      fill: fillColor,
+      stroke: strokeColor,
+      strokeWidth: strokeWidth,
+      left: centerX,
+      top: centerY,
+      originX: 'center',
+      originY: 'center',
+    });
+    canvas.add(circle);
+    canvas.setActiveObject(circle);
+    canvas.requestRenderAll();
+    save();
+  }, [canvas, fillColor, strokeColor, strokeWidth, focusedPageNumber, save]);
+
+  const addTextCallback = useCallback(() => {
+    if (!canvas) return;
+    const workspaces = canvas.getObjects().filter(
+      (obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-")
+    );
+    const focusedWs = workspaces.find((ws: any) => ws.pageNumber === focusedPageNumber) || workspaces[0];
+    const wsCenter = focusedWs?.getCenterPoint();
+    const canvasCenter = canvas.getCenter();
+    const centerX = wsCenter?.x ?? canvasCenter.left;
+    const centerY = wsCenter?.y ?? canvasCenter.top;
+
+    const text = new fabric.Textbox("Text", {
+      ...TEXT_OPTIONS,
+      fill: fillColor,
+      left: centerX,
+      top: centerY,
+      originX: 'center',
+      originY: 'center',
+    });
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    canvas.requestRenderAll();
+    save();
+  }, [canvas, fillColor, focusedPageNumber, save]);
+
   useHotkeys({
     undo,
     redo,
@@ -3597,6 +3727,14 @@ export const useEditor = ({
     gridSize: snappingOptions.snapGridSize,
     groupSelected: groupSelectedCallback,
     ungroupSelected: ungroupSelectedCallback,
+    enablePanMode: enablePanModeCallback,
+    disablePanMode: disablePanModeCallback,
+    isPanMode: isPanModeCallback,
+    addRectangle: addRectangleCallback,
+    addCircle: addCircleCallback,
+    addText: addTextCallback,
+    enableDrawingMode: enableDrawingModeCallback,
+    disableDrawingMode: disableDrawingModeCallback,
   });
 
   useLoadState({

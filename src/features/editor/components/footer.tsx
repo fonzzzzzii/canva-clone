@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Hand, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
 
 import { Editor } from "@/features/editor/types";
@@ -14,20 +13,15 @@ interface FooterProps {
 export const Footer = ({ editor }: FooterProps) => {
   const pageCount = editor?.getPageCount() || 1;
   const focusedPage = editor?.getFocusedPageNumber() || 1;
-  const [isPanMode, setIsPanMode] = useState(false);
+  // Read pan mode directly from editor - syncs with keyboard shortcuts
+  const isPanMode = editor?.isPanMode() || false;
 
   const enableSelectionMode = () => {
-    if (isPanMode) {
-      editor?.disablePanMode();
-      setIsPanMode(false);
-    }
+    editor?.disablePanMode();
   };
 
   const enablePanMode = () => {
-    if (!isPanMode) {
-      editor?.enablePanMode();
-      setIsPanMode(true);
-    }
+    editor?.enablePanMode();
   };
 
   return (

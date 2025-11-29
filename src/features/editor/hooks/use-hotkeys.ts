@@ -1,4 +1,5 @@
 import { fabric } from "fabric";
+import { useRef } from "react";
 import { useEvent } from "react-use";
 import { ImageFrame, IFrame, isFrameType } from "@/features/editor/objects/image-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
@@ -18,6 +19,16 @@ interface UseHotkeysProps {
   gridSize?: number;
   groupSelected?: () => void;
   ungroupSelected?: () => void;
+  // Tool shortcuts
+  enablePanMode?: () => void;
+  disablePanMode?: () => void;
+  isPanMode?: () => boolean;
+  addRectangle?: () => void;
+  addCircle?: () => void;
+  addText?: () => void;
+  enableDrawingMode?: () => void;
+  disableDrawingMode?: () => void;
+  onChangeActiveTool?: (tool: string) => void;
 }
 
 export const useHotkeys = ({
@@ -35,7 +46,19 @@ export const useHotkeys = ({
   gridSize = 10,
   groupSelected,
   ungroupSelected,
+  enablePanMode,
+  disablePanMode,
+  isPanMode,
+  addRectangle,
+  addCircle,
+  addText,
+  enableDrawingMode,
+  disableDrawingMode,
+  onChangeActiveTool,
 }: UseHotkeysProps) => {
+  // Track if space is being held for temporary pan
+  const spaceHeldRef = useRef(false);
+
   useEvent("keydown", (event) => {
     const isCtrlKey = event.ctrlKey || event.metaKey;
     const isShiftKey = event.shiftKey;
@@ -409,6 +432,73 @@ export const useHotkeys = ({
 
       canvas.requestRenderAll();
       save();
+    }
+
+    // Tool shortcuts (single keys, no modifiers)
+    if (!isCtrlKey && !isShiftKey) {
+      switch (event.key.toLowerCase()) {
+        case 'v':
+          event.preventDefault();
+          disablePanMode?.();
+          disableDrawingMode?.();
+          onChangeActiveTool?.('select');
+          break;
+        case 'h':
+          event.preventDefault();
+          disableDrawingMode?.();
+          enablePanMode?.();
+          break;
+        case 'r':
+          event.preventDefault();
+          disablePanMode?.();
+          disableDrawingMode?.();
+          addRectangle?.();
+          onChangeActiveTool?.('select');
+          break;
+        case 'o':
+          event.preventDefault();
+          disablePanMode?.();
+          disableDrawingMode?.();
+          addCircle?.();
+          onChangeActiveTool?.('select');
+          break;
+        case 't':
+          event.preventDefault();
+          disablePanMode?.();
+          disableDrawingMode?.();
+          addText?.();
+          onChangeActiveTool?.('select');
+          break;
+        case 'f':
+          event.preventDefault();
+          disablePanMode?.();
+          disableDrawingMode?.();
+          onChangeActiveTool?.('image-frame');
+          break;
+        case 'p':
+          event.preventDefault();
+          disablePanMode?.();
+          enableDrawingMode?.();
+          onChangeActiveTool?.('draw');
+          break;
+      }
+    }
+
+    // Space key for temporary pan (only if not already in pan mode via H key)
+    if (event.code === 'Space' && !isCtrlKey && !spaceHeldRef.current) {
+      event.preventDefault();
+      if (!isPanMode?.()) {
+        spaceHeldRef.current = true;
+        enablePanMode?.();
+      }
+    }
+  });
+
+  // Keyup handler for Space release (temporary pan)
+  useEvent("keyup", (event) => {
+    if (event.code === 'Space' && spaceHeldRef.current) {
+      spaceHeldRef.current = false;
+      disablePanMode?.();
     }
   });
 };
