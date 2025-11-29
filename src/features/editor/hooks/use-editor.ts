@@ -505,8 +505,17 @@ const buildEditor = ({
           // Generate new image ID
           const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-          // Get frame's center point (frame may have different origin)
-          const frameCenter = (frame as fabric.Object).getCenterPoint();
+          // Calculate frame center manually - same calculation as syncFrameImage
+          let frameCenterX: number;
+          let frameCenterY: number;
+          if (frame.type === "circleFrame") {
+            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            frameCenterX = (frame.left || 0) + radius;
+            frameCenterY = (frame.top || 0) + radius;
+          } else {
+            frameCenterX = (frame.left || 0) + frameWidth / 2;
+            frameCenterY = (frame.top || 0) + frameHeight / 2;
+          }
 
           // Create new framed image
           const element = (loadedImage as any).getElement();
@@ -514,8 +523,8 @@ const buildEditor = ({
             id: newImageId,
             linkedFrameId: frame.id,
             imageUrl: newImageUrl,
-            left: frameCenter.x,
-            top: frameCenter.y,
+            left: frameCenterX,
+            top: frameCenterY,
             originX: "center",
             originY: "center",
           });
@@ -3243,12 +3252,34 @@ export const useEditor = ({
     const syncFrameImage = (frame: IFrame) => {
       const image = frame.getLinkedImage(canvas) as FramedImage | null;
       if (image && !image.isInEditMode) {
-        // Get the frame's absolute position (accounting for group transforms)
-        const frameCenter = (frame as fabric.Object).getCenterPoint();
+        // Calculate frame center - for circle use radius, for others use width/height
+        let frameCenterX: number;
+        let frameCenterY: number;
+
+        if (frame.type === "circleFrame") {
+          const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
+          frameCenterX = (frame.left || 0) + radius;
+          frameCenterY = (frame.top || 0) + radius;
+        } else if (frame.type === "triangleFrame" || frame.type === "polygonFrame") {
+          const width = ((frame as any).width || 100) * (frame.scaleX || 1);
+          const height = ((frame as any).height || 100) * (frame.scaleY || 1);
+          frameCenterX = (frame.left || 0) + width / 2;
+          frameCenterY = (frame.top || 0) + height / 2;
+        } else {
+          // imageFrame (rectangle)
+          const width = ((frame as any).width || 100) * (frame.scaleX || 1);
+          const height = ((frame as any).height || 100) * (frame.scaleY || 1);
+          frameCenterX = (frame.left || 0) + width / 2;
+          frameCenterY = (frame.top || 0) + height / 2;
+        }
+
+        const newLeft = frameCenterX + image.offsetX;
+        const newTop = frameCenterY + image.offsetY;
 
         image.set({
-          left: frameCenter.x + image.offsetX,
-          top: frameCenter.y + image.offsetY,
+          left: newLeft,
+          top: newTop,
+          dirty: true,
         });
         image.applyFrameClip(frame);
         image.setCoords();
@@ -3906,10 +3937,24 @@ export const useEditor = ({
           image.customScaleX = image.customScaleX * uniformScaleRatio;
           image.customScaleY = image.customScaleX; // Keep uniform
 
-          // Final position
+          // Calculate frame center - same calculation as syncFrameImage
+          let frameCenterX: number;
+          let frameCenterY: number;
+          if (frame.type === "circleFrame") {
+            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            frameCenterX = (frame.left || 0) + radius;
+            frameCenterY = (frame.top || 0) + radius;
+          } else {
+            const width = ((frame as any).width || 100) * (frame.scaleX || 1);
+            const height = ((frame as any).height || 100) * (frame.scaleY || 1);
+            frameCenterX = (frame.left || 0) + width / 2;
+            frameCenterY = (frame.top || 0) + height / 2;
+          }
+
+          // Final position using center calculation
           image.set({
-            left: (frame.left || 0) + image.offsetX,
-            top: (frame.top || 0) + image.offsetY,
+            left: frameCenterX + image.offsetX,
+            top: frameCenterY + image.offsetY,
             scaleX: image.customScaleX,
             scaleY: image.customScaleY,
           });

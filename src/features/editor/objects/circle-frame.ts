@@ -45,14 +45,26 @@ export class CircleFrame extends fabric.Circle {
    * Get the linked FramedImage object from the canvas
    */
   getLinkedImage(canvas: fabric.Canvas): fabric.Image | null {
-    if (!this.linkedImageId) return null;
-
     const objects = canvas.getObjects();
+
+    // First try to find by linkedImageId
+    if (this.linkedImageId) {
+      for (const obj of objects) {
+        if (obj.type === "framedImage" && (obj as any).id === this.linkedImageId) {
+          return obj as fabric.Image;
+        }
+      }
+    }
+
+    // Fallback: search for any FramedImage linked to this frame's ID
     for (const obj of objects) {
-      if (obj.type === "framedImage" && (obj as any).id === this.linkedImageId) {
+      if (obj.type === "framedImage" && (obj as any).linkedFrameId === this.id) {
+        // Update our linkedImageId to match
+        this.linkedImageId = (obj as any).id;
         return obj as fabric.Image;
       }
     }
+
     return null;
   }
 
@@ -74,12 +86,14 @@ export class CircleFrame extends fabric.Circle {
    * Get a clipPath object matching this frame's shape
    */
   getClipPath(): fabric.Circle {
-    const radius = (this.radius || 100) * (this.scaleX || 1);
-    const center = this.getCenterPoint();
+    const radius = (this.radius || 200) * (this.scaleX || 1);
+    // Calculate center manually to match syncFrameImage calculation
+    const centerX = (this.left || 0) + radius;
+    const centerY = (this.top || 0) + radius;
 
     return new fabric.Circle({
-      left: center.x,
-      top: center.y,
+      left: centerX,
+      top: centerY,
       radius: radius,
       originX: "center",
       originY: "center",

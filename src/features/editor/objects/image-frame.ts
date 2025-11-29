@@ -82,14 +82,26 @@ export class ImageFrame extends fabric.Rect {
    * Get the linked FramedImage object from the canvas
    */
   getLinkedImage(canvas: fabric.Canvas): fabric.Image | null {
-    if (!this.linkedImageId) return null;
-
     const objects = canvas.getObjects();
+
+    // First try to find by linkedImageId
+    if (this.linkedImageId) {
+      for (const obj of objects) {
+        if (obj.type === "framedImage" && (obj as any).id === this.linkedImageId) {
+          return obj as fabric.Image;
+        }
+      }
+    }
+
+    // Fallback: search for any FramedImage linked to this frame's ID
     for (const obj of objects) {
-      if (obj.type === "framedImage" && (obj as any).id === this.linkedImageId) {
+      if (obj.type === "framedImage" && (obj as any).linkedFrameId === this.id) {
+        // Update our linkedImageId to match
+        this.linkedImageId = (obj as any).id;
         return obj as fabric.Image;
       }
     }
+
     return null;
   }
 
@@ -115,11 +127,13 @@ export class ImageFrame extends fabric.Rect {
   getClipPath(): fabric.Rect {
     const width = (this.width || 100) * (this.scaleX || 1);
     const height = (this.height || 100) * (this.scaleY || 1);
-    const center = this.getCenterPoint();
+    // Calculate center manually to match syncFrameImage calculation
+    const centerX = (this.left || 0) + width / 2;
+    const centerY = (this.top || 0) + height / 2;
 
     return new fabric.Rect({
-      left: center.x,
-      top: center.y,
+      left: centerX,
+      top: centerY,
       width: width,
       height: height,
       rx: this.rx,
