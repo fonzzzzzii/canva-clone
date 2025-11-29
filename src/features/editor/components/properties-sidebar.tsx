@@ -32,7 +32,13 @@ export const PropertiesSidebar = ({
     height: 0,
   });
 
-  // Store previous scale values for delta calculations
+  // Store INITIAL frame scale when object is selected (not previous values)
+  const initialFrameScaleRef = useRef<{ scaleX: number; scaleY: number }>({ scaleX: 1, scaleY: 1 });
+
+  // Store INITIAL image state when object is selected (for imageFrame objects)
+  const initialImageStateRef = useRef<{ offsetX: number; offsetY: number; customScaleX: number } | null>(null);
+
+  // Track previous scale for non-imageFrame objects (legacy behavior)
   const previousScaleRef = useRef<{ scaleX: number; scaleY: number }>({ scaleX: 1, scaleY: 1 });
 
   // Store the current workspace offset for the page the object is on
@@ -121,8 +127,36 @@ export const PropertiesSidebar = ({
         height: Math.round(height),
       });
 
-      // Store initial scale for delta calculations
+      // Store initial scale for delta calculations (legacy)
       previousScaleRef.current = { scaleX, scaleY };
+
+      // Store initial frame scale for imageFrame objects
+      initialFrameScaleRef.current = { scaleX, scaleY };
+
+      // For imageFrame, also store linked image's initial state
+      if (selectedObject.type === "imageFrame" && editor?.canvas) {
+        const frame = selectedObject as any;
+        const linkedImageId = frame.linkedImageId;
+        if (linkedImageId) {
+          const objects = editor.canvas.getObjects();
+          const image = objects.find(
+            (obj: any) => obj.type === "framedImage" && obj.id === linkedImageId
+          ) as any;
+          if (image) {
+            initialImageStateRef.current = {
+              offsetX: image.offsetX,
+              offsetY: image.offsetY,
+              customScaleX: image.customScaleX,
+            };
+          } else {
+            initialImageStateRef.current = null;
+          }
+        } else {
+          initialImageStateRef.current = null;
+        }
+      } else {
+        initialImageStateRef.current = null;
+      }
     }
   }, [selectedObject, editor]);
 
@@ -147,22 +181,24 @@ export const PropertiesSidebar = ({
 
     if (!image || image.isInEditMode) return;
 
+    // If we don't have initial image state, we can't calculate properly
+    if (!initialImageStateRef.current) return;
+
     const frameScaleX = frame.scaleX || 1;
     const frameScaleY = frame.scaleY || 1;
-    const prevScaleX = previousScaleRef.current.scaleX;
-    const prevScaleY = previousScaleRef.current.scaleY;
 
-    // Calculate the scale ratio (delta from previous)
-    const scaleRatioX = frameScaleX / prevScaleX;
-    const scaleRatioY = frameScaleY / prevScaleY;
+    // Calculate ratio from INITIAL scale (not previous)
+    // This prevents corruption when typing intermediate values like "6" -> "60" -> "605"
+    const scaleRatioX = frameScaleX / initialFrameScaleRef.current.scaleX;
+    const scaleRatioY = frameScaleY / initialFrameScaleRef.current.scaleY;
 
     // Use the MAX ratio to maintain cover behavior (no stretching)
     const uniformScaleRatio = Math.max(scaleRatioX, scaleRatioY);
 
-    // Apply uniform scale to maintain aspect ratio
-    const newOffsetX = image.offsetX * scaleRatioX;
-    const newOffsetY = image.offsetY * scaleRatioY;
-    const newScale = image.customScaleX * uniformScaleRatio;
+    // Calculate new values from INITIAL state (not current state)
+    const newOffsetX = initialImageStateRef.current.offsetX * scaleRatioX;
+    const newOffsetY = initialImageStateRef.current.offsetY * scaleRatioY;
+    const newScale = initialImageStateRef.current.customScaleX * uniformScaleRatio;
 
     // Update the stored offsets and custom scale
     image.offsetX = newOffsetX;
@@ -243,8 +279,6 @@ export const PropertiesSidebar = ({
         // For imageFrame, sync the linked image with cover behavior
         if (obj.type === "imageFrame") {
           syncFrameImage(obj, editor.canvas);
-          // Update the previous scale ref after syncing
-          previousScaleRef.current.scaleX = newScaleX;
         }
       } else if (property === "height") {
         const baseHeight = obj.get("height") || 1;
@@ -254,8 +288,6 @@ export const PropertiesSidebar = ({
         // For imageFrame, sync the linked image with cover behavior
         if (obj.type === "imageFrame") {
           syncFrameImage(obj, editor.canvas);
-          // Update the previous scale ref after syncing
-          previousScaleRef.current.scaleY = newScaleY;
         }
       }
       obj.setCoords();
