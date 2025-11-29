@@ -6,7 +6,6 @@ interface UseCanvasEventsProps {
   canvas: fabric.Canvas | null;
   setSelectedObjects: (objects: fabric.Object[]) => void;
   clearSelectionCallback?: () => void;
-  setFocusedPageNumber?: (pageNumber: number) => void;
 };
 
 export const useCanvasEvents = ({
@@ -14,7 +13,6 @@ export const useCanvasEvents = ({
   canvas,
   setSelectedObjects,
   clearSelectionCallback,
-  setFocusedPageNumber,
 }: UseCanvasEventsProps) => {
   useEffect(() => {
     if (canvas) {
@@ -31,30 +29,7 @@ export const useCanvasEvents = ({
         setSelectedObjects([]);
         clearSelectionCallback?.();
       });
-
-      // Click on canvas to select page
-      canvas.on("mouse:down", (e) => {
-        if (!setFocusedPageNumber) return;
-
-        const pointer = canvas.getPointer(e.e);
-        const clickPoint = new fabric.Point(pointer.x, pointer.y);
-
-        // Find all page workspaces
-        const workspaces = canvas.getObjects().filter(
-          (obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-")
-        );
-
-        // Find which page was clicked
-        for (const workspace of workspaces) {
-          if (workspace.containsPoint(clickPoint)) {
-            const pageNumber = (workspace as any).pageNumber;
-            if (pageNumber) {
-              setFocusedPageNumber(pageNumber);
-            }
-            break;
-          }
-        }
-      });
+      // Note: mouse:down for page selection is handled in use-editor.ts
     }
 
     return () => {
@@ -64,7 +39,6 @@ export const useCanvasEvents = ({
         canvas.off("selection:created");
         canvas.off("selection:updated");
         canvas.off("selection:cleared");
-        canvas.off("mouse:down");
       }
     };
   },
@@ -73,6 +47,5 @@ export const useCanvasEvents = ({
     canvas,
     clearSelectionCallback,
     setSelectedObjects, // No need for this, this is from setState
-    setFocusedPageNumber,
   ]);
 };

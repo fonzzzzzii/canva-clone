@@ -20,7 +20,7 @@ export const PageSelector = ({
   }
 
   const handlePageClick = (pageNumber: number) => {
-    editor?.setFocusedPage(pageNumber);
+    editor?.goToPage(pageNumber);
   };
 
   return (

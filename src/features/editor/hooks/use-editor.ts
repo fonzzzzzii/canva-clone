@@ -2384,7 +2384,7 @@ const buildEditor = ({
 
       setFocusedPageNumber(newPageNumber);
       updatePageFocusVisuals();
-      zoomToPage(newPageNumber);
+      // Note: Does NOT zoom - use goToPage for navigation with zoom
     },
     getFocusedPageNumber: () => {
       return focusedPageNumber;
@@ -3498,7 +3498,6 @@ export const useEditor = ({
     canvas,
     setSelectedObjects,
     clearSelectionCallback,
-    setFocusedPageNumber,
   });
 
   const toggleGrid = useCallback(() => {
@@ -3857,6 +3856,9 @@ export const useEditor = ({
     if (!canvas) return;
 
     const handleMouseDown = (e: fabric.IEvent) => {
+      // Skip page selection when in pan mode
+      if (panModeRef.current) return;
+
       const workspaces = canvas
         .getObjects()
         .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
