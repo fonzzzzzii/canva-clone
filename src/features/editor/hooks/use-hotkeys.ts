@@ -308,28 +308,7 @@ export const useHotkeys = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
-              let frameCenterX: number;
-              let frameCenterY: number;
-              if (frame.type === "circleFrame") {
-                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                frameCenterX = absoluteLeft + radiusX;
-                frameCenterY = absoluteTop + radiusY;
-              } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
-              }
-
-              // Update image position
-              linkedImage.set({
-                left: frameCenterX + linkedImage.offsetX,
-                top: frameCenterY + linkedImage.offsetY,
-              });
-
-              // Temporarily set frame to absolute position for correct clipPath
+              // Temporarily set frame to absolute position for correct clipPath and center
               const savedLeft = frame.left;
               const savedTop = frame.top;
               const savedScaleX = frame.scaleX;
@@ -340,6 +319,26 @@ export const useHotkeys = ({
                 top: absoluteTop,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
+              });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
+              } else {
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
+              }
+
+              // Update image position
+              linkedImage.set({
+                left: frameCenterX + linkedImage.offsetX,
+                top: frameCenterY + linkedImage.offsetY,
               });
 
               linkedImage.applyFrameClip(frame);

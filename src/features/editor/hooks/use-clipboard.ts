@@ -194,29 +194,7 @@ export const useClipboard = ({
                   const effectiveScaleX = (frame.scaleX || 1) * (clonedGroup.scaleX || 1);
                   const effectiveScaleY = (frame.scaleY || 1) * (clonedGroup.scaleY || 1);
 
-                  // Calculate frame CENTER (must match syncFrameImage calculation)
-                  let frameCenterX: number;
-                  let frameCenterY: number;
-                  if (frame.type === "circleFrame") {
-                    const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                    const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                    frameCenterX = absoluteLeft + radiusX;
-                    frameCenterY = absoluteTop + radiusY;
-                  } else {
-                    const width = ((frame as any).width || 100) * effectiveScaleX;
-                    const height = ((frame as any).height || 100) * effectiveScaleY;
-                    frameCenterX = absoluteLeft + width / 2;
-                    frameCenterY = absoluteTop + height / 2;
-                  }
-
-                  image.set({
-                    left: frameCenterX + image.offsetX,
-                    top: frameCenterY + image.offsetY,
-                    evented: false,
-                    selectable: false,
-                  });
-
-                  // Temporarily set frame to absolute position for correct clipPath
+                  // Temporarily set frame to absolute position for correct clipPath and center
                   const savedLeft = frame.left;
                   const savedTop = frame.top;
                   const savedScaleX = frame.scaleX;
@@ -227,6 +205,27 @@ export const useClipboard = ({
                     top: absoluteTop,
                     scaleX: effectiveScaleX,
                     scaleY: effectiveScaleY,
+                  });
+
+                  // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+                  let frameCenterX: number;
+                  let frameCenterY: number;
+                  if (frame.type === "circleFrame") {
+                    const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                    const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                    frameCenterX = absoluteLeft + radiusX;
+                    frameCenterY = absoluteTop + radiusY;
+                  } else {
+                    const center = (frame as any).getCenterPoint();
+                    frameCenterX = center.x;
+                    frameCenterY = center.y;
+                  }
+
+                  image.set({
+                    left: frameCenterX + image.offsetX,
+                    top: frameCenterY + image.offsetY,
+                    evented: false,
+                    selectable: false,
                   });
 
                   image.applyFrameClip(frame);

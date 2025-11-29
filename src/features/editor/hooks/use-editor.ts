@@ -3322,21 +3322,6 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
-              let frameCenterX: number;
-              let frameCenterY: number;
-              if (frame.type === "circleFrame") {
-                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                frameCenterX = absoluteLeft + radiusX;
-                frameCenterY = absoluteTop + radiusY;
-              } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
-              }
-
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
               const savedTop = frame.top;
@@ -3349,6 +3334,20 @@ export const useEditor = ({
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
               });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
+              } else {
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
+              }
 
               if (!imageIsInSelection) {
                 // Image is NOT in selection - we need to move it manually
@@ -3397,26 +3396,6 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
-              let frameCenterX: number;
-              let frameCenterY: number;
-              if (frame.type === "circleFrame") {
-                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                frameCenterX = absoluteLeft + radiusX;
-                frameCenterY = absoluteTop + radiusY;
-              } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
-              }
-
-              image.set({
-                left: frameCenterX + image.offsetX,
-                top: frameCenterY + image.offsetY,
-              });
-
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
               const savedTop = frame.top;
@@ -3428,6 +3407,25 @@ export const useEditor = ({
                 top: absoluteTop,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
+              });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
+              } else {
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
+              }
+
+              image.set({
+                left: frameCenterX + image.offsetX,
+                top: frameCenterY + image.offsetY,
               });
 
               image.applyFrameClip(frame);
@@ -3496,7 +3494,20 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
+              // Temporarily modify frame position/scale to get correct clip path and center
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
+                left: absoluteLeft,
+                top: absoluteTop,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
@@ -3505,10 +3516,9 @@ export const useEditor = ({
                 frameCenterX = absoluteLeft + radiusX;
                 frameCenterY = absoluteTop + radiusY;
               } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
               }
 
               if (!imageIsInSelection) {
@@ -3538,19 +3548,6 @@ export const useEditor = ({
                 });
               }
               // If image IS in selection, fabric.js handles its transform, just update clip
-
-              // Temporarily modify frame position/scale to get correct clip path
-              const savedLeft = frame.left;
-              const savedTop = frame.top;
-              const savedScaleX = frame.scaleX;
-              const savedScaleY = frame.scaleY;
-
-              (frame as any).set({
-                left: absoluteLeft,
-                top: absoluteTop,
-                scaleX: effectiveScaleX,
-                scaleY: effectiveScaleY,
-              });
 
               image.applyFrameClip(frame);
               image.setCoords();
@@ -3649,7 +3646,20 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
+              // Temporarily modify frame position/scale to get correct clip path and center
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
+                left: absoluteLeft,
+                top: absoluteTop,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
@@ -3658,10 +3668,9 @@ export const useEditor = ({
                 frameCenterX = absoluteLeft + radiusX;
                 frameCenterY = absoluteTop + radiusY;
               } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
               }
 
               // Use stored initial values for the image (before this scaling operation started)
@@ -3686,19 +3695,6 @@ export const useEditor = ({
                 top: frameCenterY + scaledOffsetY,
                 scaleX: scaledCustomScale,
                 scaleY: scaledCustomScale,
-              });
-
-              // Temporarily modify frame position/scale to get correct clip path
-              const savedLeft = frame.left;
-              const savedTop = frame.top;
-              const savedScaleX = frame.scaleX;
-              const savedScaleY = frame.scaleY;
-
-              (frame as any).set({
-                left: absoluteLeft,
-                top: absoluteTop,
-                scaleX: effectiveScaleX,
-                scaleY: effectiveScaleY,
               });
 
               image.applyFrameClip(frame);
@@ -3784,31 +3780,7 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
-              let frameCenterX: number;
-              let frameCenterY: number;
-              if (frame.type === "circleFrame") {
-                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                frameCenterX = absoluteLeft + radiusX;
-                frameCenterY = absoluteTop + radiusY;
-              } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
-              }
-
-              if (!imageIsInSelection) {
-                image.set({
-                  left: frameCenterX + image.offsetX,
-                  top: frameCenterY + image.offsetY,
-                  scaleX: image.customScaleX,
-                  scaleY: image.customScaleY,
-                });
-              }
-
-              // Temporarily modify frame position/scale to get correct clip path
+              // Temporarily modify frame position/scale to get correct clip path and center
               const savedLeft = frame.left;
               const savedTop = frame.top;
               const savedScaleX = frame.scaleX;
@@ -3820,6 +3792,29 @@ export const useEditor = ({
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
               });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
+              } else {
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
+              }
+
+              if (!imageIsInSelection) {
+                image.set({
+                  left: frameCenterX + image.offsetX,
+                  top: frameCenterY + image.offsetY,
+                  scaleX: image.customScaleX,
+                  scaleY: image.customScaleY,
+                });
+              }
 
               image.applyFrameClip(frame);
               image.setCoords();
@@ -3932,29 +3927,7 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
-              // Calculate frame CENTER (must match syncFrameImage calculation)
-              let frameCenterX: number;
-              let frameCenterY: number;
-              if (frame.type === "circleFrame") {
-                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
-                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
-                frameCenterX = absoluteLeft + radiusX;
-                frameCenterY = absoluteTop + radiusY;
-              } else {
-                const width = ((frame as any).width || 100) * effectiveScaleX;
-                const height = ((frame as any).height || 100) * effectiveScaleY;
-                frameCenterX = absoluteLeft + width / 2;
-                frameCenterY = absoluteTop + height / 2;
-              }
-
-              image.set({
-                left: frameCenterX + image.offsetX,
-                top: frameCenterY + image.offsetY,
-                scaleX: image.customScaleX,
-                scaleY: image.customScaleY,
-              });
-
-              // Temporarily modify frame position/scale to get correct clip path
+              // Temporarily modify frame position/scale to get correct clip path and center
               const savedLeft = frame.left;
               const savedTop = frame.top;
               const savedScaleX = frame.scaleX;
@@ -3965,6 +3938,27 @@ export const useEditor = ({
                 top: absoluteTop,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
+              });
+
+              // Calculate frame CENTER after setting temp position - use getCenterPoint for non-circle frames
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
+              } else {
+                const center = (frame as any).getCenterPoint();
+                frameCenterX = center.x;
+                frameCenterY = center.y;
+              }
+
+              image.set({
+                left: frameCenterX + image.offsetX,
+                top: frameCenterY + image.offsetY,
+                scaleX: image.customScaleX,
+                scaleY: image.customScaleY,
               });
 
               image.applyFrameClip(frame);
