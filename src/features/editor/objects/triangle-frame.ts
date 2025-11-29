@@ -88,13 +88,11 @@ export class TriangleFrame extends fabric.Triangle {
   getClipPath(): fabric.Triangle {
     const width = (this.width || 100) * (this.scaleX || 1);
     const height = (this.height || 100) * (this.scaleY || 1);
-    // Calculate center manually to match syncFrameImage calculation
-    const centerX = (this.left || 0) + width / 2;
-    const centerY = (this.top || 0) + height / 2;
+    const center = this.getCenterPoint();
 
     return new fabric.Triangle({
-      left: centerX,
-      top: centerY,
+      left: center.x,
+      top: center.y,
       width: width,
       height: height,
       originX: "center",

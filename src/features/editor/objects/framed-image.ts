@@ -136,7 +136,7 @@ export class FramedImage extends fabric.Image {
     // Reapply clipping
     const frame = this.getLinkedFrame(canvas);
     if (frame) {
-      // Calculate frame center - must match the calculation in syncFrameImage
+      // Calculate frame center - use getCenterPoint for non-circle frames to match getClipPath
       let frameCenterX: number;
       let frameCenterY: number;
       if (frame.type === "circleFrame") {
@@ -145,10 +145,9 @@ export class FramedImage extends fabric.Image {
         frameCenterX = (frame.left || 0) + radiusX;
         frameCenterY = (frame.top || 0) + radiusY;
       } else {
-        const width = ((frame as any).width || 100) * (frame.scaleX || 1);
-        const height = ((frame as any).height || 100) * (frame.scaleY || 1);
-        frameCenterX = (frame.left || 0) + width / 2;
-        frameCenterY = (frame.top || 0) + height / 2;
+        const center = (frame as any).getCenterPoint();
+        frameCenterX = center.x;
+        frameCenterY = center.y;
       }
 
       // Save the offset from frame CENTER (user's crop position)

@@ -506,17 +506,20 @@ const buildEditor = ({
           // Generate new image ID
           const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-          // Calculate frame center manually - same calculation as syncFrameImage
+          // Calculate frame center - use getCenterPoint for non-circle frames to match getClipPath
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
+            // Circle frames need manual calculation (radius-based positioning)
             const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
             const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
             frameCenterX = (frame.left || 0) + radiusX;
             frameCenterY = (frame.top || 0) + radiusY;
           } else {
-            frameCenterX = (frame.left || 0) + frameWidth / 2;
-            frameCenterY = (frame.top || 0) + frameHeight / 2;
+            // For other frame types, use getCenterPoint to match getClipPath
+            const center = (frame as any).getCenterPoint();
+            frameCenterX = center.x;
+            frameCenterY = center.y;
           }
 
           // Create new framed image
@@ -3255,26 +3258,21 @@ export const useEditor = ({
     const syncFrameImage = (frame: IFrame) => {
       const image = frame.getLinkedImage(canvas) as FramedImage | null;
       if (image && !image.isInEditMode) {
-        // Calculate frame center - for circle use radius, for others use width/height
+        // Calculate frame center - use getCenterPoint for non-circle frames to match getClipPath
         let frameCenterX: number;
         let frameCenterY: number;
 
         if (frame.type === "circleFrame") {
+          // Circle frames need manual calculation (radius-based positioning)
           const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
           const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
           frameCenterX = (frame.left || 0) + radiusX;
           frameCenterY = (frame.top || 0) + radiusY;
-        } else if (frame.type === "triangleFrame" || frame.type === "polygonFrame") {
-          const width = ((frame as any).width || 100) * (frame.scaleX || 1);
-          const height = ((frame as any).height || 100) * (frame.scaleY || 1);
-          frameCenterX = (frame.left || 0) + width / 2;
-          frameCenterY = (frame.top || 0) + height / 2;
         } else {
-          // imageFrame (rectangle)
-          const width = ((frame as any).width || 100) * (frame.scaleX || 1);
-          const height = ((frame as any).height || 100) * (frame.scaleY || 1);
-          frameCenterX = (frame.left || 0) + width / 2;
-          frameCenterY = (frame.top || 0) + height / 2;
+          // For other frame types, use getCenterPoint to match getClipPath
+          const center = (frame as any).getCenterPoint();
+          frameCenterX = center.x;
+          frameCenterY = center.y;
         }
 
         const newLeft = frameCenterX + image.offsetX;
@@ -3589,7 +3587,7 @@ export const useEditor = ({
           const newOffsetY = image.offsetY * scaleRatioY;
           const newScale = image.customScaleX * uniformScaleRatio;
 
-          // Calculate frame CENTER (must match syncFrameImage calculation)
+          // Calculate frame CENTER - use getCenterPoint for non-circle frames to match getClipPath
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
@@ -3598,10 +3596,9 @@ export const useEditor = ({
             frameCenterX = (frame.left || 0) + radiusX;
             frameCenterY = (frame.top || 0) + radiusY;
           } else {
-            const width = ((frame as any).width || 100) * (frame.scaleX || 1);
-            const height = ((frame as any).height || 100) * (frame.scaleY || 1);
-            frameCenterX = (frame.left || 0) + width / 2;
-            frameCenterY = (frame.top || 0) + height / 2;
+            const center = (frame as any).getCenterPoint();
+            frameCenterX = center.x;
+            frameCenterY = center.y;
           }
 
           // Apply the scaled position and uniform scale
@@ -4051,7 +4048,7 @@ export const useEditor = ({
             image.customScaleY = image.customScaleX; // Keep uniform
           }
 
-          // Calculate frame center - same calculation as syncFrameImage
+          // Calculate frame center - use getCenterPoint for non-circle frames to match getClipPath
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
@@ -4060,10 +4057,9 @@ export const useEditor = ({
             frameCenterX = (frame.left || 0) + radiusX;
             frameCenterY = (frame.top || 0) + radiusY;
           } else {
-            const width = ((frame as any).width || 100) * (frame.scaleX || 1);
-            const height = ((frame as any).height || 100) * (frame.scaleY || 1);
-            frameCenterX = (frame.left || 0) + width / 2;
-            frameCenterY = (frame.top || 0) + height / 2;
+            const center = (frame as any).getCenterPoint();
+            frameCenterX = center.x;
+            frameCenterY = center.y;
           }
 
           // Final position using center calculation (preserve existing scale)

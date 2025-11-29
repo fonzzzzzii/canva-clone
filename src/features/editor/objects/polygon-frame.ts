@@ -91,11 +91,7 @@ export class PolygonFrame extends fabric.Polygon {
   getClipPath(): fabric.Polygon {
     const scaleX = this.scaleX || 1;
     const scaleY = this.scaleY || 1;
-    const width = (this.width || 100) * scaleX;
-    const height = (this.height || 100) * scaleY;
-    // Calculate center manually to match syncFrameImage calculation
-    const centerX = (this.left || 0) + width / 2;
-    const centerY = (this.top || 0) + height / 2;
+    const center = this.getCenterPoint();
 
     // Scale the original points
     const scaledPoints = this._originalPoints.map((p) => ({
@@ -104,8 +100,8 @@ export class PolygonFrame extends fabric.Polygon {
     }));
 
     return new fabric.Polygon(scaledPoints, {
-      left: centerX,
-      top: centerY,
+      left: center.x,
+      top: center.y,
       originX: "center",
       originY: "center",
       absolutePositioned: true,
