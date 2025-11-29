@@ -73,6 +73,7 @@ const buildEditor = ({
   setFocusedPageNumber,
   panModeRef,
   justExitedPanModeRef,
+  setIsPanModeState,
 }: BuildEditorProps): Editor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
@@ -353,6 +354,7 @@ const buildEditor = ({
       canvas.discardActiveObject();
       canvas.renderAll();
       panModeRef.current = true;
+      setIsPanModeState(true);
       canvas.defaultCursor = 'grab';
       canvas.hoverCursor = 'grab';
       // Disable selection
@@ -364,6 +366,7 @@ const buildEditor = ({
     },
     disablePanMode: () => {
       panModeRef.current = false;
+      setIsPanModeState(false);
       // Temporarily mark that we just exited pan mode to prevent accidental page selection
       justExitedPanModeRef.current = true;
       setTimeout(() => {
@@ -5006,6 +5009,7 @@ export const useEditor = ({
         setFocusedPageNumber,
         panModeRef,
         justExitedPanModeRef,
+        setIsPanModeState,
       });
     }
 

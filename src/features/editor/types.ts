@@ -260,6 +260,7 @@ export type BuildEditorProps = {
   setFocusedPageNumber: (pageNumber: number) => void;
   panModeRef: React.MutableRefObject<boolean>;
   justExitedPanModeRef: React.MutableRefObject<boolean>;
+  setIsPanModeState: (value: boolean) => void;
 };
 
 export interface Editor {
