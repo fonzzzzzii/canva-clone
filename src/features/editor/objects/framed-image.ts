@@ -136,9 +136,23 @@ export class FramedImage extends fabric.Image {
     // Reapply clipping
     const frame = this.getLinkedFrame(canvas);
     if (frame) {
-      // Save the offset from frame center (user's crop position)
-      this.offsetX = (this.left || 0) - (frame.left || 0);
-      this.offsetY = (this.top || 0) - (frame.top || 0);
+      // Calculate frame center - must match the calculation in syncFrameImage
+      let frameCenterX: number;
+      let frameCenterY: number;
+      if (frame.type === "circleFrame") {
+        const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
+        frameCenterX = (frame.left || 0) + radius;
+        frameCenterY = (frame.top || 0) + radius;
+      } else {
+        const width = ((frame as any).width || 100) * (frame.scaleX || 1);
+        const height = ((frame as any).height || 100) * (frame.scaleY || 1);
+        frameCenterX = (frame.left || 0) + width / 2;
+        frameCenterY = (frame.top || 0) + height / 2;
+      }
+
+      // Save the offset from frame CENTER (user's crop position)
+      this.offsetX = (this.left || 0) - frameCenterX;
+      this.offsetY = (this.top || 0) - frameCenterY;
 
       // Save the custom scale
       this.customScaleX = this.scaleX || 1;

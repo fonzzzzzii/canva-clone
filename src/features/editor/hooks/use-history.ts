@@ -2,7 +2,7 @@ import { fabric } from "fabric";
 import { useCallback, useRef, useState } from "react";
 
 import { JSON_KEYS } from "@/features/editor/types";
-import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { ImageFrame, IFrame, isFrameType } from "@/features/editor/objects/image-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseHistoryProps {
@@ -19,20 +19,20 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
   const canvasHistory = useRef<string[]>([]);
   const skipSave = useRef(false);
 
-  // Helper to find frame by ID, including inside groups
-  const findFrameById = useCallback((frameId: string): ImageFrame | undefined => {
+  // Helper to find frame by ID, including inside groups (supports all frame types)
+  const findFrameById = useCallback((frameId: string): IFrame | undefined => {
     if (!canvas) return undefined;
     // First check top-level objects
     for (const obj of canvas.getObjects()) {
-      if (obj.type === "imageFrame" && (obj as ImageFrame).id === frameId) {
-        return obj as ImageFrame;
+      if (isFrameType(obj.type) && (obj as IFrame).id === frameId) {
+        return obj as IFrame;
       }
       // Check inside groups
       if (obj.type === "group") {
         const group = obj as fabric.Group;
         const foundInGroup = group.getObjects().find(
-          (o) => o.type === "imageFrame" && (o as ImageFrame).id === frameId
-        ) as ImageFrame | undefined;
+          (o) => isFrameType(o.type) && (o as IFrame).id === frameId
+        ) as IFrame | undefined;
         if (foundInGroup) return foundInGroup;
       }
     }
@@ -40,9 +40,10 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
   }, [canvas]);
 
   // Helper to get absolute frame position and effective scale (accounting for group membership)
-  const getAbsoluteFrameTransform = useCallback((frame: ImageFrame) => {
-    if (frame.group) {
-      const group = frame.group;
+  const getAbsoluteFrameTransform = useCallback((frame: IFrame) => {
+    const frameObj = frame as unknown as fabric.Object;
+    if (frameObj.group) {
+      const group = frameObj.group;
       const groupCenter = group.getCenterPoint();
       // Account for group scale when calculating position
       const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
@@ -120,20 +121,22 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Get absolute position and effective scale (handles frames inside groups)
-                const transform = getAbsoluteFrameTransform(frame);
-
-                // Create a temp frame object with absolute coordinates for clipping
-                const tempFrame = {
-                  left: transform.left,
-                  top: transform.top,
-                  width: frame.width,
-                  height: frame.height,
-                  scaleX: transform.scaleX,
-                  scaleY: transform.scaleY,
-                } as ImageFrame;
-
-                framedImage.applyFrameClip(tempFrame);
+                // Use the frame's getClipPath method if available (proper frame class)
+                if (typeof frame.getClipPath === 'function') {
+                  framedImage.applyFrameClip(frame);
+                } else {
+                  // Fallback for plain objects
+                  const transform = getAbsoluteFrameTransform(frame);
+                  const tempFrame = {
+                    left: transform.left,
+                    top: transform.top,
+                    width: (frame as any).width || 100,
+                    height: (frame as any).height || 100,
+                    scaleX: transform.scaleX,
+                    scaleY: transform.scaleY,
+                  } as IFrame;
+                  framedImage.applyFrameClip(tempFrame);
+                }
                 canvas.requestRenderAll();
               }
             }, 0);
@@ -172,20 +175,22 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Get absolute position and effective scale (handles frames inside groups)
-                const transform = getAbsoluteFrameTransform(frame);
-
-                // Create a temp frame object with absolute coordinates for clipping
-                const tempFrame = {
-                  left: transform.left,
-                  top: transform.top,
-                  width: frame.width,
-                  height: frame.height,
-                  scaleX: transform.scaleX,
-                  scaleY: transform.scaleY,
-                } as ImageFrame;
-
-                framedImage.applyFrameClip(tempFrame);
+                // Use the frame's getClipPath method if available (proper frame class)
+                if (typeof frame.getClipPath === 'function') {
+                  framedImage.applyFrameClip(frame);
+                } else {
+                  // Fallback for plain objects
+                  const transform = getAbsoluteFrameTransform(frame);
+                  const tempFrame = {
+                    left: transform.left,
+                    top: transform.top,
+                    width: (frame as any).width || 100,
+                    height: (frame as any).height || 100,
+                    scaleX: transform.scaleX,
+                    scaleY: transform.scaleY,
+                  } as IFrame;
+                  framedImage.applyFrameClip(tempFrame);
+                }
                 canvas.requestRenderAll();
               }
             }, 0);

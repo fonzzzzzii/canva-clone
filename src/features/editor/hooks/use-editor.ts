@@ -3464,6 +3464,20 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               if (!imageIsInSelection) {
                 // Image is NOT in selection - we control it manually
                 // Use stored initial values for the image
@@ -3484,8 +3498,8 @@ export const useEditor = ({
                 const scaledCustomScale = initialCustomScale * uniformSelectionScaleRatio;
 
                 image.set({
-                  left: absoluteLeft + scaledOffsetX,
-                  top: absoluteTop + scaledOffsetY,
+                  left: frameCenterX + scaledOffsetX,
+                  top: frameCenterY + scaledOffsetY,
                   scaleX: scaledCustomScale,
                   scaleY: scaledCustomScale,
                 });
@@ -3540,10 +3554,24 @@ export const useEditor = ({
           const newOffsetY = image.offsetY * scaleRatioY;
           const newScale = image.customScaleX * uniformScaleRatio;
 
+          // Calculate frame CENTER (must match syncFrameImage calculation)
+          let frameCenterX: number;
+          let frameCenterY: number;
+          if (frame.type === "circleFrame") {
+            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            frameCenterX = (frame.left || 0) + radius;
+            frameCenterY = (frame.top || 0) + radius;
+          } else {
+            const width = ((frame as any).width || 100) * (frame.scaleX || 1);
+            const height = ((frame as any).height || 100) * (frame.scaleY || 1);
+            frameCenterX = (frame.left || 0) + width / 2;
+            frameCenterY = (frame.top || 0) + height / 2;
+          }
+
           // Apply the scaled position and uniform scale
           image.set({
-            left: (frame.left || 0) + newOffsetX,
-            top: (frame.top || 0) + newOffsetY,
+            left: frameCenterX + newOffsetX,
+            top: frameCenterY + newOffsetY,
             scaleX: newScale,
             scaleY: newScale,
           });
@@ -3588,6 +3616,20 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               // Use stored initial values for the image (before this scaling operation started)
               const initialOffsetX = (image as any)._initialOffsetX ?? image.offsetX;
               const initialOffsetY = (image as any)._initialOffsetY ?? image.offsetY;
@@ -3606,8 +3648,8 @@ export const useEditor = ({
               const scaledCustomScale = initialCustomScale * uniformGroupScaleRatio;
 
               image.set({
-                left: absoluteLeft + scaledOffsetX,
-                top: absoluteTop + scaledOffsetY,
+                left: frameCenterX + scaledOffsetX,
+                top: frameCenterY + scaledOffsetY,
                 scaleX: scaledCustomScale,
                 scaleY: scaledCustomScale,
               });
@@ -3708,10 +3750,24 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               if (!imageIsInSelection) {
                 image.set({
-                  left: absoluteLeft + image.offsetX,
-                  top: absoluteTop + image.offsetY,
+                  left: frameCenterX + image.offsetX,
+                  top: frameCenterY + image.offsetY,
                   scaleX: image.customScaleX,
                   scaleY: image.customScaleY,
                 });
@@ -3841,9 +3897,23 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
+                left: frameCenterX + image.offsetX,
+                top: frameCenterY + image.offsetY,
                 scaleX: image.customScaleX,
                 scaleY: image.customScaleY,
               });
@@ -3926,16 +3996,21 @@ export const useEditor = ({
           const scaleRatioX = (frame.scaleX || 1) / frame._previousScaleX;
           const scaleRatioY = (frame.scaleY || 1) / frame._previousScaleY;
 
-          // Use the MAX ratio to maintain cover behavior (no stretching)
-          const uniformScaleRatio = Math.max(scaleRatioX, scaleRatioY);
+          // Check if scaling actually occurred (not just movement)
+          const wasScaled = Math.abs(scaleRatioX - 1) > 0.001 || Math.abs(scaleRatioY - 1) > 0.001;
 
-          // Update stored offset (scaled by respective axis for position)
-          image.offsetX = image.offsetX * scaleRatioX;
-          image.offsetY = image.offsetY * scaleRatioY;
+          if (wasScaled) {
+            // Use the MAX ratio to maintain cover behavior (no stretching)
+            const uniformScaleRatio = Math.max(scaleRatioX, scaleRatioY);
 
-          // Update stored scale uniformly (no stretching)
-          image.customScaleX = image.customScaleX * uniformScaleRatio;
-          image.customScaleY = image.customScaleX; // Keep uniform
+            // Update stored offset (scaled by respective axis for position)
+            image.offsetX = image.offsetX * scaleRatioX;
+            image.offsetY = image.offsetY * scaleRatioY;
+
+            // Update stored scale uniformly (no stretching)
+            image.customScaleX = image.customScaleX * uniformScaleRatio;
+            image.customScaleY = image.customScaleX; // Keep uniform
+          }
 
           // Calculate frame center - same calculation as syncFrameImage
           let frameCenterX: number;
@@ -3951,12 +4026,10 @@ export const useEditor = ({
             frameCenterY = (frame.top || 0) + height / 2;
           }
 
-          // Final position using center calculation
+          // Final position using center calculation (preserve existing scale)
           image.set({
             left: frameCenterX + image.offsetX,
             top: frameCenterY + image.offsetY,
-            scaleX: image.customScaleX,
-            scaleY: image.customScaleY,
           });
 
           image.applyFrameClip(frame);
