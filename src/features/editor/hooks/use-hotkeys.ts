@@ -1,6 +1,6 @@
 import { fabric } from "fabric";
 import { useEvent } from "react-use";
-import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { ImageFrame, IFrame, isFrameType } from "@/features/editor/objects/image-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseHotkeysProps {
@@ -53,9 +53,9 @@ export const useHotkeys = ({
       canvas.getActiveObjects().forEach((object) => {
         objectsToRemove.push(object);
 
-        // If deleting a frame, also delete its linked image
-        if (object.type === "imageFrame") {
-          const frame = object as ImageFrame;
+        // If deleting a frame (any type), also delete its linked image
+        if (isFrameType(object.type)) {
+          const frame = object as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage && !objectsToRemove.includes(linkedImage)) {
             objectsToRemove.push(linkedImage);
@@ -206,8 +206,8 @@ export const useHotkeys = ({
         const movedLinkedObjects = new Set<fabric.Object>();
 
         selectionObjects.forEach((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const linkedImage = frame.getLinkedImage(canvas);
             // If the linked image is NOT in the selection, move it manually
             if (linkedImage && !selectionObjects.includes(linkedImage) && !movedLinkedObjects.has(linkedImage)) {
@@ -240,8 +240,8 @@ export const useHotkeys = ({
         // Account for selection scale when calculating positions
         const groupCenter = selection.getCenterPoint();
         selectionObjects.forEach((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
             if (linkedImage) {
               // Account for selection scale when calculating relative position
@@ -257,11 +257,11 @@ export const useHotkeys = ({
               const tempFrame = {
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
+                width: (frame as any).width,
+                height: (frame as any).height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              } as IFrame;
 
               linkedImage.applyFrameClip(tempFrame);
             }
@@ -281,8 +281,8 @@ export const useHotkeys = ({
         // Update clip paths for any frame/image pairs inside the group
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (linkedImage) {
@@ -306,11 +306,11 @@ export const useHotkeys = ({
               const tempFrame = {
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
+                width: (frame as any).width,
+                height: (frame as any).height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              } as IFrame;
 
               linkedImage.applyFrameClip(tempFrame);
               linkedImage.setCoords();
@@ -327,8 +327,8 @@ export const useHotkeys = ({
           obj.setCoords();
 
           // Handle linked pairs
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
             if (linkedImage) {
               linkedImage.set({
