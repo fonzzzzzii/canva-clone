@@ -1,6 +1,6 @@
 import { fabric } from "fabric";
 import { useCallback, useRef } from "react";
-import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { ImageFrame, IFrame, isFrameType } from "@/features/editor/objects/image-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseClipboardProps {
@@ -29,10 +29,10 @@ export const useClipboard = ({
         return;
       }
 
-      // Check if copying a Group - need to also copy linked images for any ImageFrames inside
+      // Check if copying a Group - need to also copy linked images for any frames inside
       if (activeObject.type === "group") {
         const group = activeObject as fabric.Group;
-        const frames = group.getObjects().filter((obj) => obj.type === "imageFrame") as ImageFrame[];
+        const frames = group.getObjects().filter((obj) => isFrameType(obj.type)) as unknown as IFrame[];
 
         // Find all linked images for frames in this group
         const linkedImages: FramedImage[] = [];
@@ -78,9 +78,9 @@ export const useClipboard = ({
         return;
       }
 
-      // Check if copying an ImageFrame - need to also copy linked image
-      if (activeObject.type === "imageFrame") {
-        const frame = activeObject as ImageFrame;
+      // Check if copying any frame type - need to also copy linked image
+      if (isFrameType(activeObject.type)) {
+        const frame = activeObject as unknown as IFrame;
         const linkedImage = frame.getLinkedImage(canvas!) as FramedImage | null;
 
         if (linkedImage) {
@@ -152,8 +152,8 @@ export const useClipboard = ({
 
               // Get frames from the cloned group
               const clonedFrames = clonedGroup.getObjects().filter(
-                (obj) => obj.type === "imageFrame"
-              ) as ImageFrame[];
+                (obj) => isFrameType(obj.type)
+              ) as unknown as IFrame[];
 
               // Generate new IDs and re-link frames with images
               // Match by index (frames and images were cloned in same order)
@@ -205,11 +205,11 @@ export const useClipboard = ({
                   const tempFrame = {
                     left: absoluteLeft,
                     top: absoluteTop,
-                    width: frame.width,
-                    height: frame.height,
+                    width: (frame as any).width,
+                    height: (frame as any).height,
                     scaleX: effectiveScaleX,
                     scaleY: effectiveScaleY,
-                  } as ImageFrame;
+                  } as IFrame;
 
                   image.applyFrameClip(tempFrame);
                 }
