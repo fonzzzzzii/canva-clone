@@ -7,6 +7,36 @@ interface UseAutoResizeProps {
 }
 
 export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
+  // Resize canvas without changing zoom level or viewport position
+  const resizeCanvas = useCallback(() => {
+    if (!canvas || !container) return;
+
+    const width = container.offsetWidth;
+    const height = container.offsetHeight;
+
+    const oldWidth = canvas.getWidth();
+    const oldHeight = canvas.getHeight();
+
+    canvas.setWidth(width);
+    canvas.setHeight(height);
+
+    // Adjust viewport to keep the same center point visible
+    const viewportTransform = canvas.viewportTransform;
+    if (viewportTransform) {
+      // Calculate how much the center shifted
+      const deltaX = (width - oldWidth) / 2;
+      const deltaY = (height - oldHeight) / 2;
+
+      // Adjust the viewport translation to compensate
+      viewportTransform[4] += deltaX;
+      viewportTransform[5] += deltaY;
+
+      canvas.setViewportTransform(viewportTransform);
+    }
+
+    canvas.requestRenderAll();
+  }, [canvas, container]);
+
   const autoZoom = useCallback(() => {
     if (!canvas || !container) return;
 
@@ -136,7 +166,8 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
         if (widthChange > 20 || heightChange > 20) {
           lastWidth = newWidth;
           lastHeight = newHeight;
-          autoZoom();
+          // Resize canvas but maintain current zoom level and viewport position
+          resizeCanvas();
         }
       });
 
@@ -148,7 +179,7 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
         resizeObserver.disconnect();
       }
     };
-  }, [canvas, container, autoZoom]);
+  }, [canvas, container, resizeCanvas]);
 
   return { autoZoom };
 };

@@ -7,6 +7,7 @@ import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface UseLoadStateProps {
   autoZoom: () => void;
+  zoomToPage?: (pageNumber: number) => void;
   canvas: fabric.Canvas | null;
   initialState: React.MutableRefObject<string | undefined>;
   canvasHistory: React.MutableRefObject<string[]>;
@@ -16,6 +17,7 @@ interface UseLoadStateProps {
 export const useLoadState = ({
   canvas,
   autoZoom,
+  zoomToPage,
   initialState,
   canvasHistory,
   setHistoryIndex,
@@ -131,7 +133,12 @@ export const useLoadState = ({
 
         canvasHistory.current = [currentState];
         setHistoryIndex(0);
-        autoZoom();
+        // Zoom to page 1 on initial load (or autoZoom if zoomToPage not available)
+        if (zoomToPage) {
+          zoomToPage(1);
+        } else {
+          autoZoom();
+        }
       }, reviver);
       initialized.current = true;
     }
@@ -139,6 +146,7 @@ export const useLoadState = ({
   [
     canvas,
     autoZoom,
+    zoomToPage,
     initialState, // no need, this is a ref
     canvasHistory, // no need, this is a ref
     setHistoryIndex, // no need, this is a dispatch

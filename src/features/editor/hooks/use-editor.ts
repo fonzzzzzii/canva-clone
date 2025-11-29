@@ -3504,6 +3504,50 @@ export const useEditor = ({
     container,
   });
 
+  // Zoom to a specific page - callback version for use outside buildEditor
+  const zoomToPageCallback = useCallback((pageNumber: number) => {
+    if (!canvas) return;
+
+    const workspaces = canvas
+      .getObjects()
+      .filter((object) => object.name === "clip" || object.name?.startsWith("clip-page-"));
+
+    // Find the workspace for this page
+    // @ts-ignore
+    const targetWorkspace = workspaces.find((ws) => ws.pageNumber === pageNumber);
+
+    if (!targetWorkspace) return;
+
+    // Get workspace dimensions and center in object coordinates
+    const workspaceCenter = targetWorkspace.getCenterPoint();
+    const workspaceWidth = targetWorkspace.width || 1;
+    const workspaceHeight = targetWorkspace.height || 1;
+
+    // Calculate zoom to fit the page nicely (85% of viewport)
+    const containerWidth = canvas.getWidth() || 1;
+    const containerHeight = canvas.getHeight() || 1;
+
+    const scaleX = containerWidth / workspaceWidth;
+    const scaleY = containerHeight / workspaceHeight;
+    const scale = Math.min(scaleX, scaleY) * 0.85;
+
+    // Reset viewport transform
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+    // Set zoom level
+    canvas.setZoom(scale);
+
+    // Center the workspace in the viewport
+    const vpt = canvas.viewportTransform;
+    if (vpt) {
+      vpt[4] = containerWidth / 2 - workspaceCenter.x * scale;
+      vpt[5] = containerHeight / 2 - workspaceCenter.y * scale;
+      canvas.setViewportTransform(vpt);
+    }
+
+    canvas.requestRenderAll();
+  }, [canvas]);
+
   useCanvasEvents({
     save,
     canvas,
@@ -3769,6 +3813,7 @@ export const useEditor = ({
   useLoadState({
     canvas,
     autoZoom,
+    zoomToPage: zoomToPageCallback,
     initialState,
     canvasHistory,
     setHistoryIndex,
