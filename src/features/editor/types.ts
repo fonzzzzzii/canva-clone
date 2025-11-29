@@ -116,9 +116,7 @@ export type ActiveTool =
   | "opacity"
   | "filter"
   | "settings"
-  | "ai"
   | "remove-bg"
-  | "templates"
   | "image-frame"
   | "properties"
   | "pages";

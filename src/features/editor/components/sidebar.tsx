@@ -1,13 +1,11 @@
 "use client";
 
 import {
-  LayoutTemplate,
   ImageIcon,
   Pencil,
   Settings,
   Shapes,
   SlidersHorizontal,
-  Sparkles,
   Type,
   BookOpen,
 } from "lucide-react";
@@ -28,10 +26,10 @@ export const Sidebar = ({
     <aside className="bg-white flex flex-col w-[100px] h-full border-r overflow-y-auto">
       <ul className="flex flex-col">
         <SidebarItem
-          icon={LayoutTemplate}
-          label="Design"
-          isActive={activeTool === "templates"}
-          onClick={() => onChangeActiveTool("templates")}
+          icon={BookOpen}
+          label="Pages"
+          isActive={activeTool === "pages"}
+          onClick={() => onChangeActiveTool("pages")}
         />
         <SidebarItem
           icon={ImageIcon}
@@ -58,22 +56,10 @@ export const Sidebar = ({
           onClick={() => onChangeActiveTool("draw")}
         />
         <SidebarItem
-          icon={Sparkles}
-          label="AI"
-          isActive={activeTool === "ai"}
-          onClick={() => onChangeActiveTool("ai")}
-        />
-        <SidebarItem
           icon={SlidersHorizontal}
           label="Properties"
           isActive={activeTool === "properties"}
           onClick={() => onChangeActiveTool("properties")}
-        />
-        <SidebarItem
-          icon={BookOpen}
-          label="Pages"
-          isActive={activeTool === "pages"}
-          onClick={() => onChangeActiveTool("pages")}
         />
         <SidebarItem
           icon={Settings}
