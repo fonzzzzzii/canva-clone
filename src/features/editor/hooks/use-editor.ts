@@ -71,6 +71,7 @@ const buildEditor = ({
   pageCount,
   focusedPageNumber,
   setFocusedPageNumber,
+  panModeRef,
 }: BuildEditorProps): Editor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
@@ -343,6 +344,35 @@ const buildEditor = ({
     disableDrawingMode: () => {
       canvas.isDrawingMode = false;
     },
+    enablePanMode: () => {
+      canvas.discardActiveObject();
+      canvas.renderAll();
+      panModeRef.current = true;
+      canvas.defaultCursor = 'grab';
+      canvas.hoverCursor = 'grab';
+      // Disable selection
+      canvas.selection = false;
+      canvas.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+      });
+    },
+    disablePanMode: () => {
+      panModeRef.current = false;
+      canvas.defaultCursor = 'default';
+      canvas.hoverCursor = 'move';
+      // Re-enable selection
+      canvas.selection = true;
+      canvas.forEachObject((obj) => {
+        // Don't make workspace/clip objects selectable
+        if (obj.name === 'clip' || obj.name?.startsWith('clip-page-')) {
+          return;
+        }
+        obj.selectable = true;
+        obj.evented = true;
+      });
+    },
+    isPanMode: () => panModeRef.current,
     onUndo: () => undo(),
     onRedo: () => redo(),
     onCopy: () => copy(),
@@ -3425,6 +3455,7 @@ export const useEditor = ({
   const [strokeWidth, setStrokeWidth] = useState(STROKE_WIDTH);
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
   const activeFramedImageRef = useRef<FramedImage | null>(null);
+  const panModeRef = useRef<boolean>(false);
 
   const [snappingOptions, setSnappingOptions] = useState<SnappingOptions>({
     snapToGrid: true,
@@ -3586,6 +3617,7 @@ export const useEditor = ({
 
   useMouseEvents({
     canvas,
+    panModeRef,
   });
 
   // Handle FramedImage selection state to show/hide border
@@ -4757,6 +4789,7 @@ export const useEditor = ({
         pageCount: initialPageCount.current,
         focusedPageNumber,
         setFocusedPageNumber,
+        panModeRef,
       });
     }
 

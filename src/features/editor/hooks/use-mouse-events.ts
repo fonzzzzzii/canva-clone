@@ -3,9 +3,10 @@ import { useEffect, useRef } from "react";
 
 interface UseMouseEventsProps {
   canvas: fabric.Canvas | null;
+  panModeRef: React.MutableRefObject<boolean>;
 }
 
-export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
+export const useMouseEvents = ({ canvas, panModeRef }: UseMouseEventsProps) => {
   const isPanning = useRef(false);
   const lastPosX = useRef(0);
   const lastPosY = useRef(0);
@@ -44,8 +45,8 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
 
     // Use native DOM events for middle mouse button (more reliable)
     const handleMouseDown = (event: MouseEvent) => {
-      // Check for middle mouse button (button === 1)
-      if (event.button === 1) {
+      // Check for middle mouse button (button === 1) or left click in pan mode
+      if (event.button === 1 || (event.button === 0 && panModeRef.current)) {
         event.preventDefault();
         isPanning.current = true;
         lastPosX.current = event.clientX;
@@ -83,11 +84,11 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
     };
 
     const handleMouseUp = (event: MouseEvent) => {
-      // Reset panning state on middle mouse button release
-      if (event.button === 1) {
+      // Reset panning state on middle mouse button or left button release (when panning)
+      if (event.button === 1 || (event.button === 0 && isPanning.current)) {
         isPanning.current = false;
         if (upperCanvasElement) {
-          upperCanvasElement.style.cursor = 'default';
+          upperCanvasElement.style.cursor = panModeRef.current ? 'grab' : 'default';
         }
       }
     };

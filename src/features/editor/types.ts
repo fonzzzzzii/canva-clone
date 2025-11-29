@@ -260,6 +260,7 @@ export type BuildEditorProps = {
   pageCount: number;
   focusedPageNumber: number;
   setFocusedPageNumber: (pageNumber: number) => void;
+  panModeRef: React.MutableRefObject<boolean>;
 };
 
 export interface Editor {
@@ -280,6 +281,9 @@ export interface Editor {
   changeSize: (value: { width: number; height: number }) => void;
   enableDrawingMode: () => void;
   disableDrawingMode: () => void;
+  enablePanMode: () => void;
+  disablePanMode: () => void;
+  isPanMode: () => boolean;
   onCopy: () => void;
   onPaste: () => void;
   changeImageFilter: (value: string) => void;
