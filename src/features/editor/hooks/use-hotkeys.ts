@@ -11,6 +11,7 @@ interface UseHotkeysProps {
   save: (skip?: boolean) => void;
   copy: () => void;
   paste: () => void;
+  duplicate?: () => void;
   toggleGrid?: () => void;
   toggleSnapping?: () => void;
   zoomIn?: () => void;
@@ -38,6 +39,7 @@ export const useHotkeys = ({
   save,
   copy,
   paste,
+  duplicate,
   toggleGrid,
   toggleSnapping,
   zoomIn,
@@ -137,8 +139,8 @@ export const useHotkeys = ({
     // Ctrl+D: Duplicate selected objects
     if (isCtrlKey && event.key === "d") {
       event.preventDefault();
-      copy();
-      paste();
+      console.log("[HOTKEYS] Ctrl+D pressed, calling duplicate");
+      duplicate?.();
     }
 
     if (isCtrlKey && event.key === "s") {

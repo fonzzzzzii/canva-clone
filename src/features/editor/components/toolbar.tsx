@@ -485,8 +485,8 @@ export const Toolbar = ({
         <Hint label="Duplicate" side="bottom" sideOffset={5}>
           <Button
             onClick={() => {
-              editor?.onCopy();
-              editor?.onPaste();
+              console.log("[TOOLBAR] Duplicate button clicked");
+              editor?.duplicate();
             }}
             size="icon"
             variant="ghost"

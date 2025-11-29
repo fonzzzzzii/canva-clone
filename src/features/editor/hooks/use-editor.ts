@@ -2585,10 +2585,150 @@ const buildEditor = ({
       save();
     },
 
-    // Duplicate
-    duplicate: async () => {
-      await copy();
-      paste();
+    // Duplicate - directly clone the selected objects without using clipboard
+    duplicate: () => {
+      const activeObject = canvas.getActiveObject();
+      console.log("[DUPLICATE] Called. activeObject:", activeObject);
+      console.log("[DUPLICATE] activeObject type:", activeObject?.type);
+      console.log("[DUPLICATE] activeObject id:", (activeObject as any)?.id);
+
+      if (!activeObject) {
+        console.log("[DUPLICATE] No active object, returning early");
+        return;
+      }
+
+      const offsetX = 20;
+      const offsetY = 20;
+
+      // Handle frame types - need to also clone linked image
+      console.log("[DUPLICATE] isFrameType check:", isFrameType(activeObject.type));
+      if (isFrameType(activeObject.type)) {
+        const frame = activeObject as unknown as IFrame;
+        const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+        console.log("[DUPLICATE] Frame type detected. Frame id:", frame.id);
+        console.log("[DUPLICATE] Linked image:", linkedImage);
+
+        if (linkedImage) {
+          console.log("[DUPLICATE] Cloning frame with linked image");
+          frame.clone((clonedFrame: any) => {
+            console.log("[DUPLICATE] Frame cloned:", clonedFrame);
+            linkedImage.clone((clonedImage: any) => {
+              console.log("[DUPLICATE] Image cloned:", clonedImage);
+              // Generate new IDs
+              const newFrameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+              clonedFrame.id = newFrameId;
+              clonedFrame.linkedImageId = newImageId;
+              clonedImage.id = newImageId;
+              clonedImage.linkedFrameId = newFrameId;
+
+              clonedFrame.set({
+                left: (clonedFrame.left || 0) + offsetX,
+                top: (clonedFrame.top || 0) + offsetY,
+                evented: true,
+                selectable: true,
+              });
+
+              clonedImage.set({
+                left: (clonedImage.left || 0) + offsetX,
+                top: (clonedImage.top || 0) + offsetY,
+                evented: false,
+                selectable: false,
+              });
+
+              clonedImage.applyFrameClip(clonedFrame);
+
+              canvas.add(clonedImage);
+              canvas.add(clonedFrame);
+              canvas.setActiveObject(clonedFrame);
+              canvas.requestRenderAll();
+              save();
+            });
+          });
+          return;
+        }
+      }
+
+      // Handle FramedImage - need to also clone linked frame
+      console.log("[DUPLICATE] Checking if framedImage. type:", activeObject.type);
+      if (activeObject.type === "framedImage") {
+        const image = activeObject as FramedImage;
+        const linkedFrame = image.getLinkedFrame(canvas);
+        console.log("[DUPLICATE] FramedImage detected. Image id:", image.id);
+        console.log("[DUPLICATE] Linked frame:", linkedFrame);
+
+        if (linkedFrame) {
+          console.log("[DUPLICATE] Cloning framedImage with linked frame");
+          linkedFrame.clone((clonedFrame: any) => {
+            console.log("[DUPLICATE] Frame cloned for framedImage:", clonedFrame);
+            image.clone((clonedImage: any) => {
+              console.log("[DUPLICATE] Image cloned for framedImage:", clonedImage);
+              // Generate new IDs
+              const newFrameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+              clonedFrame.id = newFrameId;
+              clonedFrame.linkedImageId = newImageId;
+              clonedImage.id = newImageId;
+              clonedImage.linkedFrameId = newFrameId;
+
+              clonedFrame.set({
+                left: (clonedFrame.left || 0) + offsetX,
+                top: (clonedFrame.top || 0) + offsetY,
+                evented: true,
+                selectable: true,
+              });
+
+              clonedImage.set({
+                left: (clonedImage.left || 0) + offsetX,
+                top: (clonedImage.top || 0) + offsetY,
+                evented: false,
+                selectable: false,
+              });
+
+              clonedImage.applyFrameClip(clonedFrame);
+
+              canvas.add(clonedImage);
+              canvas.add(clonedFrame);
+              canvas.setActiveObject(clonedFrame);
+              canvas.requestRenderAll();
+              save();
+            });
+          });
+          return;
+        }
+      }
+
+      // Default behavior for other objects
+      console.log("[DUPLICATE] Default behavior - cloning object type:", activeObject.type);
+      activeObject.clone((cloned: any) => {
+        console.log("[DUPLICATE] Default clone complete:", cloned);
+        console.log("[DUPLICATE] Cloned type:", cloned?.type);
+        cloned.set({
+          left: (cloned.left || 0) + offsetX,
+          top: (cloned.top || 0) + offsetY,
+          evented: true,
+        });
+
+        if (cloned.type === "activeSelection") {
+          console.log("[DUPLICATE] Handling activeSelection");
+          cloned.canvas = canvas;
+          cloned.forEachObject((obj: any) => {
+            console.log("[DUPLICATE] Adding object from selection:", obj.type);
+            canvas.add(obj);
+          });
+          cloned.setCoords();
+        } else {
+          console.log("[DUPLICATE] Adding single object to canvas");
+          canvas.add(cloned);
+        }
+
+        canvas.setActiveObject(cloned);
+        console.log("[DUPLICATE] Set active object and rendering");
+        canvas.requestRenderAll();
+        save();
+      });
     },
 
     // Page Management
@@ -3810,11 +3950,145 @@ export const useEditor = ({
     save();
   }, [canvas, fillColor, focusedPageNumber, save]);
 
+  // Duplicate callback for hotkeys
+  const duplicateCallback = useCallback(() => {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    console.log("[DUPLICATE_CALLBACK] Called. activeObject:", activeObject);
+    console.log("[DUPLICATE_CALLBACK] activeObject type:", activeObject?.type);
+
+    if (!activeObject) {
+      console.log("[DUPLICATE_CALLBACK] No active object, returning early");
+      return;
+    }
+
+    const offsetX = 20;
+    const offsetY = 20;
+
+    // Handle frame types - need to also clone linked image
+    if (isFrameType(activeObject.type)) {
+      const frame = activeObject as unknown as IFrame;
+      const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+      console.log("[DUPLICATE_CALLBACK] Frame type detected. Frame id:", frame.id);
+
+      if (linkedImage) {
+        console.log("[DUPLICATE_CALLBACK] Cloning frame with linked image");
+        frame.clone((clonedFrame: any) => {
+          linkedImage.clone((clonedImage: any) => {
+            const newFrameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            clonedFrame.id = newFrameId;
+            clonedFrame.linkedImageId = newImageId;
+            clonedImage.id = newImageId;
+            clonedImage.linkedFrameId = newFrameId;
+
+            clonedFrame.set({
+              left: (clonedFrame.left || 0) + offsetX,
+              top: (clonedFrame.top || 0) + offsetY,
+              evented: true,
+              selectable: true,
+            });
+
+            clonedImage.set({
+              left: (clonedImage.left || 0) + offsetX,
+              top: (clonedImage.top || 0) + offsetY,
+              evented: false,
+              selectable: false,
+            });
+
+            clonedImage.applyFrameClip(clonedFrame);
+
+            canvas.add(clonedImage);
+            canvas.add(clonedFrame);
+            canvas.setActiveObject(clonedFrame);
+            canvas.requestRenderAll();
+            save();
+          });
+        });
+        return;
+      }
+    }
+
+    // Handle FramedImage - need to also clone linked frame
+    if (activeObject.type === "framedImage") {
+      const image = activeObject as FramedImage;
+      const linkedFrame = image.getLinkedFrame(canvas);
+      console.log("[DUPLICATE_CALLBACK] FramedImage detected");
+
+      if (linkedFrame) {
+        console.log("[DUPLICATE_CALLBACK] Cloning framedImage with linked frame");
+        linkedFrame.clone((clonedFrame: any) => {
+          image.clone((clonedImage: any) => {
+            const newFrameId = `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            clonedFrame.id = newFrameId;
+            clonedFrame.linkedImageId = newImageId;
+            clonedImage.id = newImageId;
+            clonedImage.linkedFrameId = newFrameId;
+
+            clonedFrame.set({
+              left: (clonedFrame.left || 0) + offsetX,
+              top: (clonedFrame.top || 0) + offsetY,
+              evented: true,
+              selectable: true,
+            });
+
+            clonedImage.set({
+              left: (clonedImage.left || 0) + offsetX,
+              top: (clonedImage.top || 0) + offsetY,
+              evented: false,
+              selectable: false,
+            });
+
+            clonedImage.applyFrameClip(clonedFrame);
+
+            canvas.add(clonedImage);
+            canvas.add(clonedFrame);
+            canvas.setActiveObject(clonedFrame);
+            canvas.requestRenderAll();
+            save();
+          });
+        });
+        return;
+      }
+    }
+
+    // Default behavior for other objects
+    console.log("[DUPLICATE_CALLBACK] Default behavior - cloning object type:", activeObject.type);
+    activeObject.clone((cloned: any) => {
+      console.log("[DUPLICATE_CALLBACK] Default clone complete:", cloned?.type);
+      cloned.set({
+        left: (cloned.left || 0) + offsetX,
+        top: (cloned.top || 0) + offsetY,
+        evented: true,
+      });
+
+      if (cloned.type === "activeSelection") {
+        console.log("[DUPLICATE_CALLBACK] Handling activeSelection");
+        cloned.canvas = canvas;
+        cloned.forEachObject((obj: any) => {
+          canvas.add(obj);
+        });
+        cloned.setCoords();
+      } else {
+        canvas.add(cloned);
+      }
+
+      canvas.setActiveObject(cloned);
+      canvas.requestRenderAll();
+      save();
+    });
+  }, [canvas, save]);
+
   useHotkeys({
     undo,
     redo,
     copy,
     paste,
+    duplicate: duplicateCallback,
     save,
     canvas,
     toggleGrid,
