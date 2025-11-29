@@ -307,7 +307,7 @@ export const Editor = ({ initialData }: EditorProps) => {
             key={`toolbar-${editor?.selectedObjects?.length || 0}-${editor?.selectedObjects?.[0]?.type || 'none'}`}
           />
           <div
-            className="flex-1 h-[calc(100%-124px)] bg-muted relative"
+            className="flex-1 h-[calc(100%-124px)] bg-muted relative overflow-hidden"
             ref={containerRef}
             onDragOver={(e) => {
               e.preventDefault();
