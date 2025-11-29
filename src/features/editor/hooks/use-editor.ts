@@ -3228,6 +3228,36 @@ export const useEditor = ({
           delete (selection as any)._initialSelectionScaleY;
         }
 
+        // Auto-select page when selection is moved to a different page
+        const workspaces = canvas
+          .getObjects()
+          .filter((obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-"));
+
+        if (workspaces.length > 1) {
+          const selCenter = selection.getCenterPoint();
+
+          for (const workspace of workspaces) {
+            const wsLeft = workspace.left || 0;
+            const wsTop = workspace.top || 0;
+            const wsWidth = (workspace.width || 0) * (workspace.scaleX || 1);
+            const wsHeight = (workspace.height || 0) * (workspace.scaleY || 1);
+
+            if (
+              selCenter.x >= wsLeft &&
+              selCenter.x <= wsLeft + wsWidth &&
+              selCenter.y >= wsTop &&
+              selCenter.y <= wsTop + wsHeight
+            ) {
+              // @ts-ignore
+              const pageNum = workspace.pageNumber;
+              if (pageNum && pageNum !== focusedPageNumber) {
+                setFocusedPageNumber(pageNum);
+              }
+              break;
+            }
+          }
+        }
+
         canvas.requestRenderAll();
         return;
       }
@@ -3316,6 +3346,36 @@ export const useEditor = ({
           delete (group as any)._scalingStarted;
           delete (group as any)._initialGroupScaleX;
           delete (group as any)._initialGroupScaleY;
+        }
+
+        // Auto-select page when group is moved to a different page
+        const workspaces = canvas
+          .getObjects()
+          .filter((obj: any) => obj.name === "clip" || obj.name?.startsWith("clip-page-"));
+
+        if (workspaces.length > 1) {
+          const grpCenter = group.getCenterPoint();
+
+          for (const workspace of workspaces) {
+            const wsLeft = workspace.left || 0;
+            const wsTop = workspace.top || 0;
+            const wsWidth = (workspace.width || 0) * (workspace.scaleX || 1);
+            const wsHeight = (workspace.height || 0) * (workspace.scaleY || 1);
+
+            if (
+              grpCenter.x >= wsLeft &&
+              grpCenter.x <= wsLeft + wsWidth &&
+              grpCenter.y >= wsTop &&
+              grpCenter.y <= wsTop + wsHeight
+            ) {
+              // @ts-ignore
+              const pageNum = workspace.pageNumber;
+              if (pageNum && pageNum !== focusedPageNumber) {
+                setFocusedPageNumber(pageNum);
+              }
+              break;
+            }
+          }
         }
 
         canvas.requestRenderAll();
