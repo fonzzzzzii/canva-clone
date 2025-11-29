@@ -1227,34 +1227,30 @@ const buildEditor = ({
       // Align objects to each other (requires multiple selection)
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const width = (obj.width || 0) * (obj.scaleX || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            absoluteTop,
-            width,
-            boundsLeft: absoluteLeft - width / 2,
+            bounds,
           };
         });
 
-        const leftmost = Math.min(...objectsWithBounds.map((o) => o.boundsLeft));
+        const leftmost = Math.min(...objectsWithBounds.map((o) => o.bounds.left));
 
-        canvas.discardActiveObject();
-
-        // Align all objects' left edges to the leftmost edge, keep vertical position
-        objectsWithBounds.forEach(({ obj, width, absoluteTop }) => {
-          const newLeft = leftmost + width / 2;
-          obj.set({ left: newLeft, top: absoluteTop });
+        // Align all objects' left edges to the leftmost edge
+        objectsWithBounds.forEach(({ obj, bounds }) => {
+          const deltaX = leftmost - bounds.left;
+          obj.set({ left: (obj.left || 0) + deltaX });
           obj.setCoords();
           syncLinkedImage(obj);
         });
@@ -1428,36 +1424,33 @@ const buildEditor = ({
       // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const width = (obj.width || 0) * (obj.scaleX || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            absoluteTop,
-            centerX: absoluteLeft,
-            boundsLeft: absoluteLeft - width / 2,
-            boundsRight: absoluteLeft + width / 2,
+            bounds,
+            boundsCenterX: bounds.left + bounds.width / 2,
           };
         });
 
-        const leftmost = Math.min(...objectsWithBounds.map((o) => o.boundsLeft));
-        const rightmost = Math.max(...objectsWithBounds.map((o) => o.boundsRight));
+        const leftmost = Math.min(...objectsWithBounds.map((o) => o.bounds.left));
+        const rightmost = Math.max(...objectsWithBounds.map((o) => o.bounds.left + o.bounds.width));
         const targetCenterX = (leftmost + rightmost) / 2;
 
-        canvas.discardActiveObject();
-
-        // Align all objects' centers to the group's center, keep vertical position
-        objectsWithBounds.forEach(({ obj, absoluteTop }) => {
-          obj.set({ left: targetCenterX, top: absoluteTop });
+        // Align all objects' centers to the group's center
+        objectsWithBounds.forEach(({ obj, boundsCenterX }) => {
+          const deltaX = targetCenterX - boundsCenterX;
+          obj.set({ left: (obj.left || 0) + deltaX });
           obj.setCoords();
           syncLinkedImage(obj);
         });
@@ -1633,34 +1626,31 @@ const buildEditor = ({
       // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const width = (obj.width || 0) * (obj.scaleX || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            width,
-            absoluteTop,
-            boundsRight: absoluteLeft + width / 2,
+            bounds,
+            boundsRight: bounds.left + bounds.width,
           };
         });
 
         const rightmost = Math.max(...objectsWithBounds.map((o) => o.boundsRight));
 
-        canvas.discardActiveObject();
-
-        // Align all objects' right edges to the rightmost edge, keep vertical position
-        objectsWithBounds.forEach(({ obj, width, absoluteTop }) => {
-          const newLeft = rightmost - width / 2;
-          obj.set({ left: newLeft, top: absoluteTop });
+        // Align all objects' right edges to the rightmost edge
+        objectsWithBounds.forEach(({ obj, boundsRight }) => {
+          const deltaX = rightmost - boundsRight;
+          obj.set({ left: (obj.left || 0) + deltaX });
           obj.setCoords();
           syncLinkedImage(obj);
         });
@@ -1835,34 +1825,30 @@ const buildEditor = ({
       // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const height = (obj.height || 0) * (obj.scaleY || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            height,
-            absoluteLeft,
-            boundsTop: absoluteTop - height / 2,
+            bounds,
           };
         });
 
-        const topmost = Math.min(...objectsWithBounds.map((o) => o.boundsTop));
+        const topmost = Math.min(...objectsWithBounds.map((o) => o.bounds.top));
 
-        canvas.discardActiveObject();
-
-        // Align all objects' top edges to the topmost edge, keep horizontal position
-        objectsWithBounds.forEach(({ obj, height, absoluteLeft }) => {
-          const newTop = topmost + height / 2;
-          obj.set({ left: absoluteLeft, top: newTop });
+        // Align all objects' top edges to the topmost edge
+        objectsWithBounds.forEach(({ obj, bounds }) => {
+          const deltaY = topmost - bounds.top;
+          obj.set({ top: (obj.top || 0) + deltaY });
           obj.setCoords();
           syncLinkedImage(obj);
         });
@@ -2036,36 +2022,33 @@ const buildEditor = ({
       // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const height = (obj.height || 0) * (obj.scaleY || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            absoluteLeft,
-            centerY: absoluteTop,
-            boundsTop: absoluteTop - height / 2,
-            boundsBottom: absoluteTop + height / 2,
+            bounds,
+            boundsCenterY: bounds.top + bounds.height / 2,
           };
         });
 
-        const topmost = Math.min(...objectsWithBounds.map((o) => o.boundsTop));
-        const bottommost = Math.max(...objectsWithBounds.map((o) => o.boundsBottom));
+        const topmost = Math.min(...objectsWithBounds.map((o) => o.bounds.top));
+        const bottommost = Math.max(...objectsWithBounds.map((o) => o.bounds.top + o.bounds.height));
         const targetCenterY = (topmost + bottommost) / 2;
 
-        canvas.discardActiveObject();
-
-        // Align all objects' centers to the group's center, keep horizontal position
-        objectsWithBounds.forEach(({ obj, absoluteLeft }) => {
-          obj.set({ left: absoluteLeft, top: targetCenterY });
+        // Align all objects' centers to the group's center
+        objectsWithBounds.forEach(({ obj, boundsCenterY }) => {
+          const deltaY = targetCenterY - boundsCenterY;
+          obj.set({ top: (obj.top || 0) + deltaY });
           obj.setCoords();
           syncLinkedImage(obj);
         });
@@ -2241,34 +2224,31 @@ const buildEditor = ({
       // Align objects to each other
       if (activeObj.type === "activeSelection") {
         const selection = activeObj as fabric.ActiveSelection;
-        const selectionCenter = selection.getCenterPoint();
         const objects = selection.getObjects().filter(
           (obj) => obj.name !== "clip" && obj.type !== "framedImage"
         );
 
         if (objects.length < 2) return;
 
-        const objectsWithBounds = objects.map((obj) => {
-          const absoluteLeft = selectionCenter.x + (obj.left || 0);
-          const absoluteTop = selectionCenter.y + (obj.top || 0);
-          const height = (obj.height || 0) * (obj.scaleY || 1);
+        // Discard selection first so objects have absolute positions
+        canvas.discardActiveObject();
 
+        // Get proper bounding rects that account for rotation
+        const objectsWithBounds = objects.map((obj) => {
+          const bounds = obj.getBoundingRect(true, true);
           return {
             obj,
-            height,
-            absoluteLeft,
-            boundsBottom: absoluteTop + height / 2,
+            bounds,
+            boundsBottom: bounds.top + bounds.height,
           };
         });
 
         const bottommost = Math.max(...objectsWithBounds.map((o) => o.boundsBottom));
 
-        canvas.discardActiveObject();
-
-        // Align all objects' bottom edges to the bottommost edge, keep horizontal position
-        objectsWithBounds.forEach(({ obj, height, absoluteLeft }) => {
-          const newTop = bottommost - height / 2;
-          obj.set({ left: absoluteLeft, top: newTop });
+        // Align all objects' bottom edges to the bottommost edge
+        objectsWithBounds.forEach(({ obj, boundsBottom }) => {
+          const deltaY = bottommost - boundsBottom;
+          obj.set({ top: (obj.top || 0) + deltaY });
           obj.setCoords();
           syncLinkedImage(obj);
         });
