@@ -300,11 +300,13 @@ export const PageHandlesOverlay = ({
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
+    const { over } = event;
 
-    if (!over || active.id === over.id) return;
+    if (!over) return;
 
     // Only swap if we moved to a different target than last time
+    // Note: We don't check active.id === over.id because after swapping,
+    // the page numbers change and we need to be able to swap back
     if (lastOverId !== over.id) {
       const currentPageNumber = parseInt(String(lastOverId).replace("page-", ""));
       const targetPageNumber = parseInt(String(over.id).replace("page-", ""));
