@@ -253,6 +253,7 @@ const buildEditor = ({
   };
 
   const zoomToPage = (pageNumber: number) => {
+    console.log('[ZOOM_TO_PAGE] START', { pageNumber });
     const workspaces = getWorkspaces();
 
     // Find the workspace for this page
@@ -287,6 +288,12 @@ const buildEditor = ({
       vpt[5] = containerHeight / 2 - workspaceCenter.y * scale;
       canvas.setViewportTransform(vpt);
     }
+
+    console.log('[ZOOM_TO_PAGE] END', {
+      pageNumber,
+      zoom: scale.toFixed(4),
+      vpt: vpt ? `[${vpt[4].toFixed(1)}, ${vpt[5].toFixed(1)}]` : null,
+    });
 
     canvas.requestRenderAll();
   };
@@ -2547,6 +2554,499 @@ const buildEditor = ({
       setFocusedPageNumber(pageNumber);
       updatePageFocusVisuals();
       zoomToPage(pageNumber);
+    },
+
+    // Page reordering helpers
+    getPageByNumber: (pageNumber: number): fabric.Rect | null => {
+      const workspaces = getWorkspaces();
+      const page = workspaces.find((ws: any) => ws.pageNumber === pageNumber);
+      return page ? (page as fabric.Rect) : null;
+    },
+
+    getPagePosition: (pageNumber: number): { left: number; top: number } | null => {
+      const workspaces = getWorkspaces();
+      const page = workspaces.find((ws: any) => ws.pageNumber === pageNumber);
+      if (!page) return null;
+      return { left: page.left || 0, top: page.top || 0 };
+    },
+
+    canMovePage: (pageNumber: number, direction: 'left' | 'right'): boolean => {
+      const workspaces = getWorkspaces();
+      const totalPages = workspaces.filter((ws: any) => ws.pageNumber !== undefined).length;
+      if (direction === 'left') {
+        return pageNumber > 1;
+      }
+      return pageNumber < totalPages;
+    },
+
+    movePage: (fromPageNumber: number, toPageNumber: number) => {
+      if (fromPageNumber === toPageNumber) return;
+
+      const workspaces = getWorkspaces();
+      const totalPages = workspaces.filter((ws: any) => ws.pageNumber !== undefined).length;
+
+      // Validate page numbers
+      if (fromPageNumber < 1 || fromPageNumber > totalPages) return;
+      if (toPageNumber < 1 || toPageNumber > totalPages) return;
+
+      // Get page dimensions
+      const firstWorkspace = workspaces[0] as fabric.Rect;
+      const pageWidth = firstWorkspace.width || 2970;
+      const pageHeight = firstWorkspace.height || 2100;
+      const pageTop = firstWorkspace.top || 0;
+      const pageSpacing = 20;
+      const spreadSpacing = 100;
+      const spreadWidth = 2 * pageWidth + pageSpacing + spreadSpacing;
+
+      // Store current state: page positions and their objects
+      const pageData = new Map<number, {
+        workspace: any;
+        oldLeft: number;
+        objects: fabric.Object[];
+      }>();
+
+      // Collect all objects on each page
+      const allObjects = canvas.getObjects();
+      workspaces.forEach((ws: any) => {
+        if (ws.pageNumber === undefined) return;
+        const pageLeft = ws.left || 0;
+        const pageW = ws.width || 0;
+        const pageH = ws.height || 0;
+        const pageT = ws.top || 0;
+
+        const objectsOnPage: fabric.Object[] = [];
+        allObjects.forEach((obj: any) => {
+          // Skip workspaces and snap lines
+          if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
+          if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+
+          const objCenter = obj.getCenterPoint();
+          if (
+            objCenter.x >= pageLeft &&
+            objCenter.x <= pageLeft + pageW &&
+            objCenter.y >= pageT &&
+            objCenter.y <= pageT + pageH
+          ) {
+            objectsOnPage.push(obj);
+          }
+        });
+
+        pageData.set(ws.pageNumber, {
+          workspace: ws,
+          oldLeft: pageLeft,
+          objects: objectsOnPage,
+        });
+      });
+
+      // Calculate new page number assignments
+      const newPageNumbers = new Map<number, number>(); // oldPageNumber -> newPageNumber
+
+      if (fromPageNumber < toPageNumber) {
+        // Moving right: pages from (from+1) to (to) shift left by 1
+        for (let p = 1; p <= totalPages; p++) {
+          if (p === fromPageNumber) {
+            newPageNumbers.set(p, toPageNumber);
+          } else if (p > fromPageNumber && p <= toPageNumber) {
+            newPageNumbers.set(p, p - 1);
+          } else {
+            newPageNumbers.set(p, p);
+          }
+        }
+      } else {
+        // Moving left: pages from (to) to (from-1) shift right by 1
+        for (let p = 1; p <= totalPages; p++) {
+          if (p === fromPageNumber) {
+            newPageNumbers.set(p, toPageNumber);
+          } else if (p >= toPageNumber && p < fromPageNumber) {
+            newPageNumbers.set(p, p + 1);
+          } else {
+            newPageNumbers.set(p, p);
+          }
+        }
+      }
+
+      // Calculate new positions for each page based on new page numbers
+      const calculatePageLeft = (pageNum: number): number => {
+        const spreadIndex = Math.floor((pageNum - 1) / 2);
+        const isLeftPage = pageNum % 2 === 1;
+        const spreadStartX = spreadIndex * spreadWidth;
+        return isLeftPage ? spreadStartX : spreadStartX + pageWidth + pageSpacing;
+      };
+
+      // Update each page and its objects
+      pageData.forEach((data, oldPageNum) => {
+        const newPageNum = newPageNumbers.get(oldPageNum);
+        if (newPageNum === undefined) return;
+
+        const newLeft = calculatePageLeft(newPageNum);
+        const deltaX = newLeft - data.oldLeft;
+
+        // Update workspace
+        data.workspace.pageNumber = newPageNum;
+        data.workspace.name = `clip-page-${newPageNum}`;
+        data.workspace.set({ left: newLeft });
+        data.workspace.setCoords();
+
+        // Move objects on this page
+        data.objects.forEach((obj: any) => {
+          obj.set({ left: (obj.left || 0) + deltaX });
+          obj.setCoords();
+
+          // Handle linked images for frames
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
+            const linkedImage = frame.getLinkedImage(canvas);
+            if (linkedImage) {
+              linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
+              linkedImage.setCoords();
+            }
+          }
+
+          // Handle groups containing frames
+          if (obj.type === "group") {
+            const group = obj as fabric.Group;
+            group.forEachObject((groupObj: any) => {
+              if (isFrameType(groupObj.type)) {
+                const frame = groupObj as unknown as IFrame;
+                const linkedImage = frame.getLinkedImage(canvas);
+                if (linkedImage) {
+                  linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
+                  linkedImage.setCoords();
+                }
+              }
+            });
+          }
+        });
+      });
+
+      canvas.requestRenderAll();
+      save();
+    },
+
+    moveSpread: (fromSpreadIndex: number, toSpreadIndex: number) => {
+      if (fromSpreadIndex === toSpreadIndex) return;
+
+      const workspaces = getWorkspaces();
+      const totalSpreads = Math.ceil(workspaces.filter((ws: any) => ws.pageNumber !== undefined).length / 2);
+
+      // Validate spread indices
+      if (fromSpreadIndex < 0 || fromSpreadIndex >= totalSpreads) return;
+      if (toSpreadIndex < 0 || toSpreadIndex >= totalSpreads) return;
+
+      // Get page dimensions
+      const firstWorkspace = workspaces[0] as fabric.Rect;
+      const pageWidth = firstWorkspace.width || 2970;
+      const pageHeight = firstWorkspace.height || 2100;
+      const pageTop = firstWorkspace.top || 0;
+      const pageSpacing = 20;
+      const spreadSpacing = 100;
+      const spreadWidth = 2 * pageWidth + pageSpacing + spreadSpacing;
+
+      // Store current state: spread positions and their objects
+      const spreadData = new Map<number, {
+        leftPage: any;
+        rightPage: any;
+        leftPageOldLeft: number;
+        rightPageOldLeft: number;
+        objects: fabric.Object[];
+      }>();
+
+      // Collect all objects for each spread
+      const allObjects = canvas.getObjects();
+      for (let s = 0; s < totalSpreads; s++) {
+        const leftPageNum = s * 2 + 1;
+        const rightPageNum = s * 2 + 2;
+
+        const leftPage = workspaces.find((ws: any) => ws.pageNumber === leftPageNum);
+        const rightPage = workspaces.find((ws: any) => ws.pageNumber === rightPageNum);
+
+        if (!leftPage || !rightPage) continue;
+
+        const objectsOnSpread: fabric.Object[] = [];
+
+        // Find objects on left page
+        const leftPageLeft = leftPage.left || 0;
+        const leftPageW = leftPage.width || 0;
+        const leftPageH = leftPage.height || 0;
+        const leftPageT = leftPage.top || 0;
+
+        // Find objects on right page
+        const rightPageLeft = rightPage.left || 0;
+        const rightPageW = rightPage.width || 0;
+        const rightPageH = rightPage.height || 0;
+        const rightPageT = rightPage.top || 0;
+
+        allObjects.forEach((obj: any) => {
+          if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
+          if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+
+          const objCenter = obj.getCenterPoint();
+
+          // Check if on left page
+          if (
+            objCenter.x >= leftPageLeft &&
+            objCenter.x <= leftPageLeft + leftPageW &&
+            objCenter.y >= leftPageT &&
+            objCenter.y <= leftPageT + leftPageH
+          ) {
+            objectsOnSpread.push(obj);
+            return;
+          }
+
+          // Check if on right page
+          if (
+            objCenter.x >= rightPageLeft &&
+            objCenter.x <= rightPageLeft + rightPageW &&
+            objCenter.y >= rightPageT &&
+            objCenter.y <= rightPageT + rightPageH
+          ) {
+            objectsOnSpread.push(obj);
+          }
+        });
+
+        spreadData.set(s, {
+          leftPage,
+          rightPage,
+          leftPageOldLeft: leftPageLeft,
+          rightPageOldLeft: rightPageLeft,
+          objects: objectsOnSpread,
+        });
+      }
+
+      // Calculate new spread index assignments
+      const newSpreadIndices = new Map<number, number>(); // oldSpreadIndex -> newSpreadIndex
+
+      if (fromSpreadIndex < toSpreadIndex) {
+        // Moving right
+        for (let s = 0; s < totalSpreads; s++) {
+          if (s === fromSpreadIndex) {
+            newSpreadIndices.set(s, toSpreadIndex);
+          } else if (s > fromSpreadIndex && s <= toSpreadIndex) {
+            newSpreadIndices.set(s, s - 1);
+          } else {
+            newSpreadIndices.set(s, s);
+          }
+        }
+      } else {
+        // Moving left
+        for (let s = 0; s < totalSpreads; s++) {
+          if (s === fromSpreadIndex) {
+            newSpreadIndices.set(s, toSpreadIndex);
+          } else if (s >= toSpreadIndex && s < fromSpreadIndex) {
+            newSpreadIndices.set(s, s + 1);
+          } else {
+            newSpreadIndices.set(s, s);
+          }
+        }
+      }
+
+      // Calculate position for a spread
+      const calculateSpreadStartX = (spreadIndex: number): number => {
+        return spreadIndex * spreadWidth;
+      };
+
+      // Update each spread and its objects
+      spreadData.forEach((data, oldSpreadIndex) => {
+        const newSpreadIndex = newSpreadIndices.get(oldSpreadIndex);
+        if (newSpreadIndex === undefined) return;
+
+        const newSpreadStartX = calculateSpreadStartX(newSpreadIndex);
+        const newLeftPageNum = newSpreadIndex * 2 + 1;
+        const newRightPageNum = newSpreadIndex * 2 + 2;
+        const newLeftPageLeft = newSpreadStartX;
+        const newRightPageLeft = newSpreadStartX + pageWidth + pageSpacing;
+
+        const deltaXLeft = newLeftPageLeft - data.leftPageOldLeft;
+        const deltaXRight = newRightPageLeft - data.rightPageOldLeft;
+
+        // Update left page
+        data.leftPage.pageNumber = newLeftPageNum;
+        data.leftPage.name = `clip-page-${newLeftPageNum}`;
+        data.leftPage.set({ left: newLeftPageLeft });
+        data.leftPage.setCoords();
+
+        // Update right page
+        data.rightPage.pageNumber = newRightPageNum;
+        data.rightPage.name = `clip-page-${newRightPageNum}`;
+        data.rightPage.set({ left: newRightPageLeft });
+        data.rightPage.setCoords();
+
+        // Move objects - need to determine which page each object was on
+        data.objects.forEach((obj: any) => {
+          const objCenter = obj.getCenterPoint();
+          const leftPageW = data.leftPage.width || 0;
+          const wasOnLeftPage = objCenter.x <= data.leftPageOldLeft + leftPageW;
+          const deltaX = wasOnLeftPage ? deltaXLeft : deltaXRight;
+
+          obj.set({ left: (obj.left || 0) + deltaX });
+          obj.setCoords();
+
+          // Handle linked images for frames
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
+            const linkedImage = frame.getLinkedImage(canvas);
+            if (linkedImage) {
+              linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
+              linkedImage.setCoords();
+            }
+          }
+
+          // Handle groups containing frames
+          if (obj.type === "group") {
+            const group = obj as fabric.Group;
+            group.forEachObject((groupObj: any) => {
+              if (isFrameType(groupObj.type)) {
+                const frame = groupObj as unknown as IFrame;
+                const linkedImage = frame.getLinkedImage(canvas);
+                if (linkedImage) {
+                  linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
+                  linkedImage.setCoords();
+                }
+              }
+            });
+          }
+        });
+      });
+
+      canvas.requestRenderAll();
+      save();
+    },
+
+    swapPagePositionsVisually: (pageA: number, pageB: number) => {
+      if (pageA === pageB) return;
+
+      const workspaces = getWorkspaces();
+      const pageAWorkspace = workspaces.find((ws: any) => ws.pageNumber === pageA);
+      const pageBWorkspace = workspaces.find((ws: any) => ws.pageNumber === pageB);
+
+      if (!pageAWorkspace || !pageBWorkspace) return;
+
+      const pageALeft = pageAWorkspace.left || 0;
+      const pageBLeft = pageBWorkspace.left || 0;
+      const pageWidth = (pageAWorkspace as any).width || 2970;
+      const pageHeight = (pageAWorkspace as any).height || 2100;
+      const pageATop = (pageAWorkspace as any).top || 0;
+      const pageBTop = (pageBWorkspace as any).top || 0;
+
+      // Calculate delta for each page
+      const deltaA = pageBLeft - pageALeft;
+      const deltaB = pageALeft - pageBLeft;
+
+      // Collect objects on each page
+      const allObjects = canvas.getObjects();
+      const objectsOnPageA: fabric.Object[] = [];
+      const objectsOnPageB: fabric.Object[] = [];
+
+      allObjects.forEach((obj: any) => {
+        if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
+        if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+
+        const objCenter = obj.getCenterPoint();
+
+        // Check page A
+        if (
+          objCenter.x >= pageALeft &&
+          objCenter.x <= pageALeft + pageWidth &&
+          objCenter.y >= pageATop &&
+          objCenter.y <= pageATop + pageHeight
+        ) {
+          objectsOnPageA.push(obj);
+        }
+        // Check page B
+        else if (
+          objCenter.x >= pageBLeft &&
+          objCenter.x <= pageBLeft + pageWidth &&
+          objCenter.y >= pageBTop &&
+          objCenter.y <= pageBTop + pageHeight
+        ) {
+          objectsOnPageB.push(obj);
+        }
+      });
+
+      // Swap workspace positions
+      (pageAWorkspace as any).set({ left: pageBLeft });
+      (pageBWorkspace as any).set({ left: pageALeft });
+
+      // Swap page numbers
+      const tempPageNum = (pageAWorkspace as any).pageNumber;
+      (pageAWorkspace as any).pageNumber = (pageBWorkspace as any).pageNumber;
+      (pageBWorkspace as any).pageNumber = tempPageNum;
+
+      // Swap names
+      (pageAWorkspace as any).name = `clip-page-${(pageAWorkspace as any).pageNumber}`;
+      (pageBWorkspace as any).name = `clip-page-${(pageBWorkspace as any).pageNumber}`;
+
+      pageAWorkspace.setCoords();
+      pageBWorkspace.setCoords();
+
+      // Move objects on page A
+      objectsOnPageA.forEach((obj: any) => {
+        obj.set({ left: (obj.left || 0) + deltaA });
+        obj.setCoords();
+
+        // Handle linked images for frames
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            linkedImage.set({ left: (linkedImage.left || 0) + deltaA });
+            linkedImage.setCoords();
+          }
+        }
+
+        // Handle groups containing frames
+        if (obj.type === "group") {
+          const group = obj as fabric.Group;
+          group.forEachObject((groupObj: any) => {
+            if (isFrameType(groupObj.type)) {
+              const frame = groupObj as unknown as IFrame;
+              const linkedImage = frame.getLinkedImage(canvas);
+              if (linkedImage) {
+                linkedImage.set({ left: (linkedImage.left || 0) + deltaA });
+                linkedImage.setCoords();
+              }
+            }
+          });
+        }
+      });
+
+      // Move objects on page B
+      objectsOnPageB.forEach((obj: any) => {
+        obj.set({ left: (obj.left || 0) + deltaB });
+        obj.setCoords();
+
+        // Handle linked images for frames
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
+          const linkedImage = frame.getLinkedImage(canvas);
+          if (linkedImage) {
+            linkedImage.set({ left: (linkedImage.left || 0) + deltaB });
+            linkedImage.setCoords();
+          }
+        }
+
+        // Handle groups containing frames
+        if (obj.type === "group") {
+          const group = obj as fabric.Group;
+          group.forEachObject((groupObj: any) => {
+            if (isFrameType(groupObj.type)) {
+              const frame = groupObj as unknown as IFrame;
+              const linkedImage = frame.getLinkedImage(canvas);
+              if (linkedImage) {
+                linkedImage.set({ left: (linkedImage.left || 0) + deltaB });
+                linkedImage.setCoords();
+              }
+            }
+          });
+        }
+      });
+
+      canvas.requestRenderAll();
+      // Note: No save() - this is just for visual preview during drag
+    },
+
+    save: () => {
+      save();
     },
 
     addSpreadAfter: (spreadIndex: number, leftTemplate: PageTemplate, rightTemplate: PageTemplate) => {

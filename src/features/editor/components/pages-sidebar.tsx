@@ -1,7 +1,23 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { ActiveTool, Editor, PageInfo, PageTemplate } from "@/features/editor/types";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
@@ -33,6 +49,109 @@ interface SpreadInfo {
   leftPage: PageInfo | undefined;
   rightPage: PageInfo | undefined;
 }
+
+// Sortable spread item component
+interface SortableSpreadItemProps {
+  spread: SpreadInfo;
+  currentSpreadIndex: number;
+  canDelete: boolean;
+  onDelete: (spreadIndex: number) => void;
+  onPageClick: (pageNumber: number) => void;
+}
+
+const SortableSpreadItem = ({
+  spread,
+  currentSpreadIndex,
+  canDelete,
+  onDelete,
+  onPageClick,
+}: SortableSpreadItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `spread-${spread.spreadIndex}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "border rounded-lg p-3 transition-colors",
+        spread.spreadIndex === currentSpreadIndex
+          ? "border-blue-500 bg-blue-50"
+          : "border-gray-200 hover:border-gray-300"
+      )}
+    >
+      {/* Spread Header with drag handle */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <span className="text-sm font-medium">
+            Spread {spread.spreadIndex + 1}
+          </span>
+        </div>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+            onClick={() => onDelete(spread.spreadIndex)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Page Thumbnails - A4 landscape aspect ratio (99:70) */}
+      <div className="flex gap-2">
+        {/* Left Page */}
+        {spread.leftPage && (
+          <button
+            className={cn(
+              "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
+              spread.spreadIndex === currentSpreadIndex
+                ? "border-blue-300"
+                : "border-gray-200"
+            )}
+            onClick={() => onPageClick(spread.leftPage!.pageNumber)}
+          >
+            {spread.leftPage.pageNumber}
+          </button>
+        )}
+        {/* Right Page */}
+        {spread.rightPage && (
+          <button
+            className={cn(
+              "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
+              spread.spreadIndex === currentSpreadIndex
+                ? "border-blue-300"
+                : "border-gray-200"
+            )}
+            onClick={() => onPageClick(spread.rightPage!.pageNumber)}
+          >
+            {spread.rightPage.pageNumber}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const PagesSidebar = ({
   editor,
@@ -115,6 +234,32 @@ export const PagesSidebar = ({
     [editor]
   );
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over || active.id === over.id || !editor) return;
+
+      const fromIndex = parseInt(String(active.id).replace("spread-", ""));
+      const toIndex = parseInt(String(over.id).replace("spread-", ""));
+
+      editor.moveSpread(fromIndex, toIndex);
+    },
+    [editor]
+  );
+
   const onClose = () => {
     onChangeActiveTool("select");
   };
@@ -143,73 +288,30 @@ export const PagesSidebar = ({
               Add Spread
             </Button>
 
-            {/* Spreads List */}
-            <div className="space-y-3">
-              {spreads.map((spread) => (
-                <div
-                  key={spread.spreadIndex}
-                  className={cn(
-                    "border rounded-lg p-3 transition-colors",
-                    spread.spreadIndex === currentSpreadIndex
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  )}
-                >
-                  {/* Spread Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      Spread {spread.spreadIndex + 1}
-                    </span>
-                    {canDelete && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-                        onClick={() => handleDeleteSpread(spread.spreadIndex)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Page Thumbnails - A4 landscape aspect ratio (99:70) */}
-                  <div className="flex gap-2">
-                    {/* Left Page */}
-                    {spread.leftPage && (
-                      <button
-                        className={cn(
-                          "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
-                          spread.spreadIndex === currentSpreadIndex
-                            ? "border-blue-300"
-                            : "border-gray-200"
-                        )}
-                        onClick={() =>
-                          handlePageClick(spread.leftPage!.pageNumber)
-                        }
-                      >
-                        {spread.leftPage.pageNumber}
-                      </button>
-                    )}
-                    {/* Right Page */}
-                    {spread.rightPage && (
-                      <button
-                        className={cn(
-                          "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
-                          spread.spreadIndex === currentSpreadIndex
-                            ? "border-blue-300"
-                            : "border-gray-200"
-                        )}
-                        onClick={() =>
-                          handlePageClick(spread.rightPage!.pageNumber)
-                        }
-                      >
-                        {spread.rightPage.pageNumber}
-                      </button>
-                    )}
-                  </div>
+            {/* Spreads List with Drag & Drop */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={spreads.map((s) => `spread-${s.spreadIndex}`)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {spreads.map((spread) => (
+                    <SortableSpreadItem
+                      key={spread.spreadIndex}
+                      spread={spread}
+                      currentSpreadIndex={currentSpreadIndex}
+                      canDelete={canDelete}
+                      onDelete={handleDeleteSpread}
+                      onPageClick={handlePageClick}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
 
             {/* Page Count Info */}
             <div className="text-xs text-gray-500 text-center pt-2 border-t">

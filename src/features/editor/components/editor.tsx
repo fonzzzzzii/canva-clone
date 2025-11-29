@@ -37,6 +37,7 @@ import { PagesSidebar } from "@/features/editor/components/pages-sidebar";
 import { SnapLines } from "@/features/editor/components/snap-lines";
 import { GridOverlay } from "@/features/editor/components/grid-overlay";
 import { ContextMenu } from "@/features/editor/components/context-menu";
+import { PageHandlesOverlay } from "@/features/editor/components/page-handles-overlay";
 
 interface ContextMenuState {
   x: number;
@@ -407,6 +408,7 @@ export const Editor = ({ initialData }: EditorProps) => {
                         workspaceHeight={workspace?.height as number || 0}
                       />
                       <SnapLines lines={snapLines} containerRef={containerRef} />
+                      <PageHandlesOverlay editor={editor} containerRef={containerRef} />
                     </>
                   );
                 })()}

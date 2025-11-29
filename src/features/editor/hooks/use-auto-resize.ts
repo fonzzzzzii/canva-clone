@@ -10,6 +10,13 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
   const autoZoom = useCallback(() => {
     if (!canvas || !container) return;
 
+    const vptBefore = canvas.viewportTransform ? [...canvas.viewportTransform] : null;
+    const zoomBefore = canvas.getZoom();
+    console.log('[AUTOZOOM] START', {
+      zoomBefore: zoomBefore.toFixed(4),
+      vptBefore: vptBefore ? `[${vptBefore[4].toFixed(1)}, ${vptBefore[5].toFixed(1)}]` : null,
+    });
+
     const width = container.offsetWidth;
     const height = container.offsetHeight;
 
@@ -107,6 +114,11 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
 
       canvas.setViewportTransform(viewportTransform);
 
+      console.log('[AUTOZOOM] END (multi-page)', {
+        zoom: zoom.toFixed(4),
+        vpt: `[${viewportTransform[4].toFixed(1)}, ${viewportTransform[5].toFixed(1)}]`,
+      });
+
       // For multi-page, don't set a global clipPath
       canvas.clipPath = undefined;
       canvas.requestRenderAll();
@@ -115,10 +127,33 @@ export const useAutoResize = ({ canvas, container }: UseAutoResizeProps) => {
 
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
+    let lastWidth = 0;
+    let lastHeight = 0;
 
     if (canvas && container) {
-      resizeObserver = new ResizeObserver(() => {
-        autoZoom();
+      // Get initial size
+      lastWidth = container.offsetWidth;
+      lastHeight = container.offsetHeight;
+
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        const newWidth = Math.round(entry.contentRect.width);
+        const newHeight = Math.round(entry.contentRect.height);
+
+        // Only trigger autoZoom on significant size changes (more than 20px)
+        // This prevents oscillation from scrollbar appearing/disappearing
+        const widthChange = Math.abs(newWidth - lastWidth);
+        const heightChange = Math.abs(newHeight - lastHeight);
+
+        if (widthChange > 20 || heightChange > 20) {
+          console.log('[RESIZE_OBSERVER] Significant change', {
+            width: `${lastWidth} -> ${newWidth}`,
+            height: `${lastHeight} -> ${newHeight}`,
+          });
+          lastWidth = newWidth;
+          lastHeight = newHeight;
+          autoZoom();
+        }
       });
 
       resizeObserver.observe(container);

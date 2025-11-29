@@ -361,4 +361,14 @@ export interface Editor {
   addSpreadAfter: (spreadIndex: number, leftTemplate: PageTemplate, rightTemplate: PageTemplate) => void;
   deleteSpread: (spreadIndex: number) => void;
   applyTemplateToPage: (pageNumber: number, template: PageTemplate) => void;
+  // Page reordering
+  movePage: (fromPageNumber: number, toPageNumber: number) => void;
+  moveSpread: (fromSpreadIndex: number, toSpreadIndex: number) => void;
+  canMovePage: (pageNumber: number, direction: 'left' | 'right') => boolean;
+  getPagePosition: (pageNumber: number) => { left: number; top: number } | null;
+  getPageByNumber: (pageNumber: number) => fabric.Rect | null;
+  // Drag preview - swaps two pages visually without saving
+  swapPagePositionsVisually: (pageA: number, pageB: number) => void;
+  // Trigger save manually
+  save: () => void;
 };
