@@ -1071,9 +1071,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -1172,27 +1174,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   left: (image.left || 0) + deltaX,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
@@ -1267,9 +1274,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -1365,27 +1374,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   left: (image.left || 0) + deltaX,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
@@ -1463,9 +1477,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -1563,27 +1579,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   left: (image.left || 0) + deltaX,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
@@ -1659,9 +1680,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -1759,27 +1782,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   top: (image.top || 0) + deltaY,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
@@ -1854,9 +1882,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -1952,27 +1982,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   top: (image.top || 0) + deltaY,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
@@ -2050,9 +2085,11 @@ const buildEditor = ({
           const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
+            // Use frame's center point since offsetX/offsetY are offsets from center
+            const frameCenter = (frame as any).getCenterPoint();
             image.set({
-              left: (frame.left || 0) + image.offsetX,
-              top: (frame.top || 0) + image.offsetY,
+              left: frameCenter.x + image.offsetX,
+              top: frameCenter.y + image.offsetY,
             });
             image.applyFrameClip(frame);
             image.setCoords();
@@ -2150,27 +2187,32 @@ const buildEditor = ({
           // Move linked images by the same delta and update their clipPaths
           const newSelectionCenter = selection.getCenterPoint();
           objects.forEach((obj) => {
-            if ((obj as any).getLinkedImage) {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const image = frame.getLinkedImage(canvas) as FramedImage | null;
               if (image) {
                 image.set({
                   top: (image.top || 0) + deltaY,
                 });
-                // Update clipPath to match new frame position
+                // Temporarily set frame to absolute position for correct clipPath
                 const frameAbsoluteLeft = newSelectionCenter.x + (frame.left || 0);
                 const frameAbsoluteTop = newSelectionCenter.y + (frame.top || 0);
-                const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-                const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
-                image.clipPath = new fabric.Rect({
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+
+                (frame as any).set({
                   left: frameAbsoluteLeft,
                   top: frameAbsoluteTop,
-                  width: frameWidth,
-                  height: frameHeight,
-                  originX: "center",
-                  originY: "center",
-                  absolutePositioned: true,
                 });
+
+                image.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                });
+
                 image.setCoords();
               }
             }
