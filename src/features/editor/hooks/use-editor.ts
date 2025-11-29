@@ -1084,13 +1084,21 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
+        console.log("[SYNC_GROUP_ALIGN] Group center:", groupCenter.x, groupCenter.y, "delta:", deltaX, deltaY);
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
+            console.log("[SYNC_GROUP_ALIGN] Frame found, linkedImage:", image ? "yes" : "no");
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -1101,10 +1109,8 @@ const buildEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
+              console.log("[SYNC_GROUP_ALIGN] Frame absolute pos:", absoluteLeft, absoluteTop);
+              console.log("[SYNC_GROUP_ALIGN] Image new pos:", image.left, image.top);
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -1215,7 +1221,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, deltaX, 0);
           }
         }
 
@@ -1283,13 +1289,19 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -1299,11 +1311,6 @@ const buildEditor = ({
               // Effective scale = frame scale * group scale
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
-
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -1412,7 +1419,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, deltaX, 0);
           }
         }
 
@@ -1483,13 +1490,19 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -1499,11 +1512,6 @@ const buildEditor = ({
               // Effective scale = frame scale * group scale
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
-
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -1614,7 +1622,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, deltaX, 0);
           }
         }
 
@@ -1683,13 +1691,19 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -1699,11 +1713,6 @@ const buildEditor = ({
               // Effective scale = frame scale * group scale
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
-
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -1813,7 +1822,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, 0, deltaY);
           }
         }
 
@@ -1881,13 +1890,19 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -1897,11 +1912,6 @@ const buildEditor = ({
               // Effective scale = frame scale * group scale
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
-
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -2010,7 +2020,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, 0, deltaY);
           }
         }
 
@@ -2081,13 +2091,19 @@ const buildEditor = ({
       };
 
       // Sync all frames inside a group with their linked images
-      const syncGroupImages = (group: fabric.Group) => {
+      const syncGroupImages = (group: fabric.Group, deltaX: number = 0, deltaY: number = 0) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
+              // First move the image by the same delta as the group
+              image.set({
+                left: (image.left || 0) + deltaX,
+                top: (image.top || 0) + deltaY,
+              });
+
               // Account for group scale when calculating absolute position
               const relativeLeft = (obj.left || 0) * (group.scaleX || 1);
               const relativeTop = (obj.top || 0) * (group.scaleY || 1);
@@ -2097,11 +2113,6 @@ const buildEditor = ({
               // Effective scale = frame scale * group scale
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
-
-              image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
-              });
 
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
@@ -2212,7 +2223,7 @@ const buildEditor = ({
           syncLinkedImage(activeObj);
           // If it's a group, sync all ImageFrames inside
           if (activeObj.type === "group") {
-            syncGroupImages(activeObj as fabric.Group);
+            syncGroupImages(activeObj as fabric.Group, 0, deltaY);
           }
         }
 
