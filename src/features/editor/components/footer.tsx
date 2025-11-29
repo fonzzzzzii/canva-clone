@@ -8,13 +8,12 @@ import { Button } from "@/components/ui/button";
 
 interface FooterProps {
   editor: Editor | undefined;
+  isPanMode: boolean;
 };
 
-export const Footer = ({ editor }: FooterProps) => {
+export const Footer = ({ editor, isPanMode }: FooterProps) => {
   const pageCount = editor?.getPageCount() || 1;
   const focusedPage = editor?.getFocusedPageNumber() || 1;
-  // Read pan mode directly from editor - syncs with keyboard shortcuts
-  const isPanMode = editor?.isPanMode() || false;
 
   const enableSelectionMode = () => {
     editor?.disablePanMode();

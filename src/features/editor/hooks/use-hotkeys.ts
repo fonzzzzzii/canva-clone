@@ -481,6 +481,15 @@ export const useHotkeys = ({
           enableDrawingMode?.();
           onChangeActiveTool?.('draw');
           break;
+        case '=':
+        case '+':
+          event.preventDefault();
+          zoomIn?.();
+          break;
+        case '-':
+          event.preventDefault();
+          zoomOut?.();
+          break;
       }
     }
 

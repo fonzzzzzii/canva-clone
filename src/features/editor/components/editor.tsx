@@ -108,7 +108,7 @@ export const Editor = ({ initialData }: EditorProps) => {
     }
   }, [activeTool]);
 
-  const { init, editor, snapLines, snappingOptions, container, hasClipboard } = useEditor({
+  const { init, editor, snapLines, snappingOptions, container, hasClipboard, isPanMode } = useEditor({
     defaultState: initialData.json,
     defaultWidth: initialData.width,
     defaultHeight: initialData.height,
@@ -415,7 +415,7 @@ export const Editor = ({ initialData }: EditorProps) => {
               </>
             )}
           </div>
-          <Footer editor={editor} />
+          <Footer editor={editor} isPanMode={isPanMode} />
         </main>
       </div>
       <ContextMenu

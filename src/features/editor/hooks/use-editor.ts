@@ -3456,6 +3456,7 @@ export const useEditor = ({
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
   const activeFramedImageRef = useRef<FramedImage | null>(null);
   const panModeRef = useRef<boolean>(false);
+  const [isPanModeState, setIsPanModeState] = useState(false);
 
   const [snappingOptions, setSnappingOptions] = useState<SnappingOptions>({
     snapToGrid: true,
@@ -3588,6 +3589,7 @@ export const useEditor = ({
     canvas.discardActiveObject();
     canvas.renderAll();
     panModeRef.current = true;
+    setIsPanModeState(true);
     canvas.defaultCursor = 'grab';
     canvas.hoverCursor = 'grab';
     canvas.selection = false;
@@ -3600,6 +3602,7 @@ export const useEditor = ({
   const disablePanModeCallback = useCallback(() => {
     if (!canvas) return;
     panModeRef.current = false;
+    setIsPanModeState(false);
     canvas.defaultCursor = 'default';
     canvas.hoverCursor = 'move';
     canvas.selection = true;
@@ -5075,5 +5078,5 @@ export const useEditor = ({
     ]
   );
 
-  return { init, editor, snapLines, snappingOptions, container, hasClipboard };
+  return { init, editor, snapLines, snappingOptions, container, hasClipboard, isPanMode: isPanModeState };
 };
