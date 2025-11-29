@@ -172,13 +172,13 @@ export const PagesSidebar = ({
                     )}
                   </div>
 
-                  {/* Page Thumbnails */}
+                  {/* Page Thumbnails - A4 landscape aspect ratio (99:70) */}
                   <div className="flex gap-2">
                     {/* Left Page */}
                     {spread.leftPage && (
                       <button
                         className={cn(
-                          "flex-1 aspect-[3/4] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
+                          "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
                           spread.spreadIndex === currentSpreadIndex
                             ? "border-blue-300"
                             : "border-gray-200"
@@ -194,7 +194,7 @@ export const PagesSidebar = ({
                     {spread.rightPage && (
                       <button
                         className={cn(
-                          "flex-1 aspect-[3/4] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
+                          "flex-1 aspect-[99/70] bg-white border rounded shadow-sm flex items-center justify-center text-xs text-gray-500 hover:border-blue-400 transition-colors",
                           spread.spreadIndex === currentSpreadIndex
                             ? "border-blue-300"
                             : "border-gray-200"

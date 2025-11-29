@@ -29,6 +29,9 @@ interface TemplatePickerDialogProps {
 
 type Step = "left" | "right";
 
+// A4 landscape aspect ratio (2970x2100 = 99:70 simplified)
+const PAGE_ASPECT_RATIO = "aspect-[99/70]";
+
 // Mini preview component for template thumbnails
 const TemplateThumbnail = ({
   template,
@@ -42,7 +45,8 @@ const TemplateThumbnail = ({
   return (
     <button
       className={cn(
-        "relative w-full aspect-[3/4] bg-white border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
+        "relative w-full bg-white border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
+        PAGE_ASPECT_RATIO,
         isSelected
           ? "border-blue-500 ring-2 ring-blue-200"
           : "border-gray-200 hover:border-gray-300"
@@ -103,13 +107,18 @@ export const TemplatePickerDialog = ({
     (template: PageTemplate) => {
       if (step === "left") {
         setLeftTemplate(template);
-        setStep("right");
       } else {
         setRightTemplate(template);
       }
     },
     [step]
   );
+
+  const handleNext = useCallback(() => {
+    if (step === "left" && leftTemplate) {
+      setStep("right");
+    }
+  }, [step, leftTemplate]);
 
   const handleBack = useCallback(() => {
     if (step === "right") {
@@ -247,7 +256,7 @@ export const TemplatePickerDialog = ({
                 {/* Left page preview */}
                 <div
                   className={cn(
-                    "w-12 h-16 border rounded flex items-center justify-center text-xs",
+                    "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
                     leftTemplate
                       ? "bg-blue-50 border-blue-300"
                       : "bg-gray-50 border-gray-200 text-gray-400"
@@ -279,7 +288,7 @@ export const TemplatePickerDialog = ({
                 {/* Right page preview */}
                 <div
                   className={cn(
-                    "w-12 h-16 border rounded flex items-center justify-center text-xs",
+                    "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
                     rightTemplate
                       ? "bg-blue-50 border-blue-300"
                       : "bg-gray-50 border-gray-200 text-gray-400"
@@ -315,12 +324,21 @@ export const TemplatePickerDialog = ({
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleConfirm}
-                disabled={!leftTemplate || !rightTemplate}
-              >
-                Add Spread
-              </Button>
+              {step === "left" ? (
+                <Button
+                  onClick={handleNext}
+                  disabled={!leftTemplate}
+                >
+                  Next
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleConfirm}
+                  disabled={!rightTemplate}
+                >
+                  Add Spread
+                </Button>
+              )}
             </div>
           </div>
         </div>
