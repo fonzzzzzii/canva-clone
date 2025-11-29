@@ -2536,10 +2536,11 @@ const buildEditor = ({
       const workspaces = getWorkspaces();
       if (workspaces.length === 0) return;
 
-      // Get page dimensions from existing workspace
+      // Get page dimensions and position from existing workspace
       const firstWorkspace = workspaces[0] as fabric.Rect;
       const pageWidth = firstWorkspace.width || 2970;
       const pageHeight = firstWorkspace.height || 2100;
+      const pageTop = firstWorkspace.top || 0;
       const pageSpacing = 20;
       const spreadSpacing = 100;
 
@@ -2634,7 +2635,7 @@ const buildEditor = ({
         selectable: false,
         hasControls: false,
         left: spreadStartX,
-        top: 0,
+        top: pageTop,
         shadow: new fabric.Shadow({
           color: "rgba(0,0,0,0.8)",
           blur: 5,
@@ -2654,7 +2655,7 @@ const buildEditor = ({
         selectable: false,
         hasControls: false,
         left: spreadStartX + pageWidth + pageSpacing,
-        top: 0,
+        top: pageTop,
         shadow: new fabric.Shadow({
           color: "rgba(0,0,0,0.8)",
           blur: 5,
@@ -2673,10 +2674,10 @@ const buildEditor = ({
       rightPage.sendToBack();
 
       // 5. Apply templates to new pages
-      const applyTemplateFrames = (pageNum: number, template: PageTemplate, pageLeft: number) => {
+      const applyTemplateFrames = (pageNum: number, template: PageTemplate, pageLeft: number, top: number) => {
         template.frames.forEach((frame) => {
           const frameLeft = pageLeft + (frame.x / 100) * pageWidth;
-          const frameTop = (frame.y / 100) * pageHeight;
+          const frameTop = top + (frame.y / 100) * pageHeight;
           const frameWidth = (frame.width / 100) * pageWidth;
           const frameHeight = (frame.height / 100) * pageHeight;
 
@@ -2692,8 +2693,8 @@ const buildEditor = ({
         });
       };
 
-      applyTemplateFrames(newLeftPageNumber, leftTemplate, spreadStartX);
-      applyTemplateFrames(newRightPageNumber, rightTemplate, spreadStartX + pageWidth + pageSpacing);
+      applyTemplateFrames(newLeftPageNumber, leftTemplate, spreadStartX, pageTop);
+      applyTemplateFrames(newRightPageNumber, rightTemplate, spreadStartX + pageWidth + pageSpacing, pageTop);
 
       // 6. Update page count
       // Note: pageCount is managed by the hook, we need to trigger a re-render
