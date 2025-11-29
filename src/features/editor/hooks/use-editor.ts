@@ -2566,7 +2566,16 @@ const buildEditor = ({
       const newLeftPageNumber = insertAfterPageNumber + 1;
       const newRightPageNumber = insertAfterPageNumber + 2;
 
-      // 1. Renumber existing pages that come after the insertion point
+      // 1. Store OLD workspace positions BEFORE any changes
+      const oldWorkspacePositions = new Map<any, { left: number; pageNumber: number }>();
+      workspaces.forEach((ws: any) => {
+        oldWorkspacePositions.set(ws, {
+          left: ws.left || 0,
+          pageNumber: ws.pageNumber || 0,
+        });
+      });
+
+      // 2. Renumber existing pages that come after the insertion point
       const allObjects = canvas.getObjects();
       allObjects.forEach((obj: any) => {
         if (obj.pageNumber && obj.pageNumber > insertAfterPageNumber) {
@@ -2577,31 +2586,36 @@ const buildEditor = ({
         }
       });
 
-      // 2. Update positions of all pages (recalculate based on new page numbers)
+      // 3. Update positions of pages that were renumbered (shift them right by one spread width)
+      // Only pages AFTER the insertion point need to move - pages before stay in their original positions
+      const spreadWidth = 2 * pageWidth + pageSpacing + spreadSpacing;
       workspaces.forEach((workspace: any) => {
-        if (!workspace.pageNumber) return;
-        const pageNum = workspace.pageNumber;
-        const newSpreadIndex = Math.floor((pageNum - 1) / 2);
-        const isLeftPage = pageNum % 2 === 1;
+        const oldPos = oldWorkspacePositions.get(workspace);
+        if (!oldPos) return;
 
-        const spreadStartX = newSpreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
-        const xPosition = isLeftPage ? spreadStartX : spreadStartX + pageWidth + pageSpacing;
-
-        workspace.set({ left: xPosition });
-        workspace.setCoords();
+        // Only move workspaces that were renumbered (their old page number was > insertAfterPageNumber)
+        if (oldPos.pageNumber > insertAfterPageNumber) {
+          // Shift right by one spread width
+          workspace.set({ left: (oldPos.left || 0) + spreadWidth });
+          workspace.setCoords();
+        }
       });
 
-      // 3. Move all non-workspace objects to their new positions (if they're on pages that moved)
+      // 4. Move all non-workspace objects to their new positions (if they're on pages that moved)
       allObjects.forEach((obj: any) => {
         if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
         if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
 
-        // Find which page this object is on based on its position
+        // Find which page this object is on based on its position using OLD workspace positions
         const objCenter = obj.getCenterPoint();
         let foundWorkspace: any = null;
+        let oldPosition: { left: number; pageNumber: number } | undefined;
 
         workspaces.forEach((ws: any) => {
-          const wsLeft = ws.left || 0;
+          const oldPos = oldWorkspacePositions.get(ws);
+          if (!oldPos) return;
+
+          const wsLeft = oldPos.left;
           const wsTop = ws.top || 0;
           const wsWidth = ws.width || 0;
           const wsHeight = ws.height || 0;
@@ -2613,17 +2627,14 @@ const buildEditor = ({
             objCenter.y <= wsTop + wsHeight
           ) {
             foundWorkspace = ws;
+            oldPosition = oldPos;
           }
         });
 
-        if (foundWorkspace && foundWorkspace.pageNumber > insertAfterPageNumber) {
-          // This object is on a page that was renumbered, move it
-          const newSpreadIndex = Math.floor((foundWorkspace.pageNumber - 1) / 2);
-          const isLeftPage = foundWorkspace.pageNumber % 2 === 1;
-          const spreadStartX = newSpreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
-          const newPageLeft = isLeftPage ? spreadStartX : spreadStartX + pageWidth + pageSpacing;
-
-          const deltaX = newPageLeft - (foundWorkspace.left || 0);
+        // Only move if the object was on a page that was renumbered (old page number > insertAfterPageNumber)
+        if (foundWorkspace && oldPosition && oldPosition.pageNumber > insertAfterPageNumber) {
+          // Calculate the delta: new workspace position - old workspace position
+          const deltaX = (foundWorkspace.left || 0) - oldPosition.left;
           obj.set({ left: (obj.left || 0) + deltaX });
           obj.setCoords();
 
@@ -2639,9 +2650,16 @@ const buildEditor = ({
         }
       });
 
-      // 4. Create new pages
-      const newSpreadIndex = spreadIndex + 1;
-      const spreadStartX = newSpreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
+      // 5. Create new pages
+      // Calculate position based on the spread we're inserting after
+      // Find the right page of the current spread (page number = insertAfterPageNumber)
+      const insertAfterRightPage = workspaces.find(
+        (ws: any) => oldWorkspacePositions.get(ws)?.pageNumber === insertAfterPageNumber
+      );
+      // New spread starts after the right page of the current spread
+      const spreadStartX = insertAfterRightPage
+        ? (insertAfterRightPage.left || 0) + pageWidth + spreadSpacing
+        : 0;
 
       // Left page
       const leftPage = new fabric.Rect({
