@@ -3524,22 +3524,28 @@ export const useEditor = ({
   const zoomIn = useCallback(() => {
     if (!canvas) return;
     let zoomRatio = canvas.getZoom();
-    zoomRatio += 0.05;
+    // Use multiplicative zoom like scroll wheel for consistent feel
+    zoomRatio *= 1.1;
+    // Clamp to same range as scroll zoom (0.01 to 1.0)
+    zoomRatio = Math.min(Math.max(zoomRatio, 0.01), 1.0);
     const center = canvas.getCenter();
     canvas.zoomToPoint(
       new fabric.Point(center.left, center.top),
-      zoomRatio > 1 ? 1 : zoomRatio
+      zoomRatio
     );
   }, [canvas]);
 
   const zoomOut = useCallback(() => {
     if (!canvas) return;
     let zoomRatio = canvas.getZoom();
-    zoomRatio -= 0.05;
+    // Use multiplicative zoom like scroll wheel for consistent feel
+    zoomRatio *= 0.9;
+    // Clamp to same range as scroll zoom (0.01 to 1.0)
+    zoomRatio = Math.min(Math.max(zoomRatio, 0.01), 1.0);
     const center = canvas.getCenter();
     canvas.zoomToPoint(
       new fabric.Point(center.left, center.top),
-      zoomRatio < 0.2 ? 0.2 : zoomRatio
+      zoomRatio
     );
   }, [canvas]);
 
