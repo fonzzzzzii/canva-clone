@@ -3320,6 +3320,20 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               // Temporarily modify frame position/scale to get correct clip path
               const savedLeft = frame.left;
               const savedTop = frame.top;
@@ -3336,8 +3350,8 @@ export const useEditor = ({
               if (!imageIsInSelection) {
                 // Image is NOT in selection - we need to move it manually
                 image.set({
-                  left: absoluteLeft + image.offsetX,
-                  top: absoluteTop + image.offsetY,
+                  left: frameCenterX + image.offsetX,
+                  top: frameCenterY + image.offsetY,
                 });
               }
 
@@ -3380,9 +3394,23 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
 
+              // Calculate frame CENTER (must match syncFrameImage calculation)
+              let frameCenterX: number;
+              let frameCenterY: number;
+              if (frame.type === "circleFrame") {
+                const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                frameCenterX = absoluteLeft + radius;
+                frameCenterY = absoluteTop + radius;
+              } else {
+                const width = ((frame as any).width || 100) * effectiveScaleX;
+                const height = ((frame as any).height || 100) * effectiveScaleY;
+                frameCenterX = absoluteLeft + width / 2;
+                frameCenterY = absoluteTop + height / 2;
+              }
+
               image.set({
-                left: absoluteLeft + image.offsetX,
-                top: absoluteTop + image.offsetY,
+                left: frameCenterX + image.offsetX,
+                top: frameCenterY + image.offsetY,
               });
 
               // Temporarily modify frame position/scale to get correct clip path
