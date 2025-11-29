@@ -120,7 +120,29 @@ export type ActiveTool =
   | "remove-bg"
   | "templates"
   | "image-frame"
-  | "properties";
+  | "properties"
+  | "pages";
+
+// Page template types for the Pages tab
+export interface FramePosition {
+  x: number;      // percentage 0-100
+  y: number;      // percentage 0-100
+  width: number;  // percentage 0-100
+  height: number; // percentage 0-100
+}
+
+export interface PageTemplate {
+  id: string;
+  name: string;
+  category: "blank" | "single" | "double" | "triple" | "quad" | "grid" | "decorative";
+  frames: FramePosition[];
+}
+
+export interface PageInfo {
+  pageNumber: number;
+  spreadIndex: number;
+  isLeftPage: boolean;
+}
 
 export const FILL_COLOR = "rgba(0,0,0,1)";
 export const STROKE_COLOR = "rgba(0,0,0,1)";
@@ -332,4 +354,11 @@ export interface Editor {
   sendToBack: () => void;
   // Duplicate
   duplicate: () => void;
+  // Page management
+  getPages: () => PageInfo[];
+  getCurrentSpreadIndex: () => number;
+  goToPage: (pageNumber: number) => void;
+  addSpreadAfter: (spreadIndex: number, leftTemplate: PageTemplate, rightTemplate: PageTemplate) => void;
+  deleteSpread: (spreadIndex: number) => void;
+  applyTemplateToPage: (pageNumber: number, template: PageTemplate) => void;
 };

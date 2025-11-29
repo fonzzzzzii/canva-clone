@@ -32,6 +32,7 @@ import { TemplateSidebar } from "@/features/editor/components/template-sidebar";
 import { RemoveBgSidebar } from "@/features/editor/components/remove-bg-sidebar";
 import { SettingsSidebar } from "@/features/editor/components/settings-sidebar";
 import { PropertiesSidebar } from "@/features/editor/components/properties-sidebar";
+import { PagesSidebar } from "@/features/editor/components/pages-sidebar";
 import { SnapLines } from "@/features/editor/components/snap-lines";
 import { GridOverlay } from "@/features/editor/components/grid-overlay";
 import { ContextMenu } from "@/features/editor/components/context-menu";
@@ -287,6 +288,11 @@ export const Editor = ({ initialData }: EditorProps) => {
           onChangeActiveTool={onChangeActiveTool}
         />
         <SettingsSidebar
+          editor={editor}
+          activeTool={activeTool}
+          onChangeActiveTool={onChangeActiveTool}
+        />
+        <PagesSidebar
           editor={editor}
           activeTool={activeTool}
           onChangeActiveTool={onChangeActiveTool}

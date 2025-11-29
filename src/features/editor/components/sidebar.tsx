@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Type,
+  BookOpen,
 } from "lucide-react";
 
 import { ActiveTool } from "@/features/editor/types";
@@ -67,6 +68,12 @@ export const Sidebar = ({
           label="Properties"
           isActive={activeTool === "properties"}
           onClick={() => onChangeActiveTool("properties")}
+        />
+        <SidebarItem
+          icon={BookOpen}
+          label="Pages"
+          isActive={activeTool === "pages"}
+          onClick={() => onChangeActiveTool("pages")}
         />
         <SidebarItem
           icon={Settings}
