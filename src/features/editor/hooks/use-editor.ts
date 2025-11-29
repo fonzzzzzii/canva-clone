@@ -2817,6 +2817,8 @@ const buildEditor = ({
           // Skip workspaces and snap lines
           if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
           if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+          // Skip framedImages - they will be moved with their linked frames
+          if (obj.type === "framedImage") return;
 
           const objCenter = obj.getCenterPoint();
           if (
@@ -2893,23 +2895,57 @@ const buildEditor = ({
           // Handle linked images for frames
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
-            const linkedImage = frame.getLinkedImage(canvas);
+            const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
             if (linkedImage) {
               linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
               linkedImage.setCoords();
+              // Update clip path to match new frame position
+              linkedImage.applyFrameClip(frame);
             }
           }
 
           // Handle groups containing frames
           if (obj.type === "group") {
             const group = obj as fabric.Group;
+            const groupCenter = group.getCenterPoint();
             group.forEachObject((groupObj: any) => {
               if (isFrameType(groupObj.type)) {
                 const frame = groupObj as unknown as IFrame;
-                const linkedImage = frame.getLinkedImage(canvas);
+                const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
                 if (linkedImage) {
                   linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
                   linkedImage.setCoords();
+
+                  // For frames in groups, need to calculate absolute position for clip path
+                  const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+                  const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+                  const absoluteLeft = groupCenter.x + relativeLeft;
+                  const absoluteTop = groupCenter.y + relativeTop;
+                  const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+                  const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+                  // Temporarily set frame to absolute position for correct clipPath
+                  const savedLeft = frame.left;
+                  const savedTop = frame.top;
+                  const savedScaleX = frame.scaleX;
+                  const savedScaleY = frame.scaleY;
+
+                  (frame as any).set({
+                    left: absoluteLeft,
+                    top: absoluteTop,
+                    scaleX: effectiveScaleX,
+                    scaleY: effectiveScaleY,
+                  });
+
+                  linkedImage.applyFrameClip(frame);
+
+                  // Restore original relative position
+                  (frame as any).set({
+                    left: savedLeft,
+                    top: savedTop,
+                    scaleX: savedScaleX,
+                    scaleY: savedScaleY,
+                  });
                 }
               }
             });
@@ -2977,6 +3013,8 @@ const buildEditor = ({
         allObjects.forEach((obj: any) => {
           if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
           if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+          // Skip framedImages - they will be moved with their linked frames
+          if (obj.type === "framedImage") return;
 
           const objCenter = obj.getCenterPoint();
 
@@ -3082,23 +3120,57 @@ const buildEditor = ({
           // Handle linked images for frames
           if (isFrameType(obj.type)) {
             const frame = obj as unknown as IFrame;
-            const linkedImage = frame.getLinkedImage(canvas);
+            const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
             if (linkedImage) {
               linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
               linkedImage.setCoords();
+              // Update clip path to match new frame position
+              linkedImage.applyFrameClip(frame);
             }
           }
 
           // Handle groups containing frames
           if (obj.type === "group") {
             const group = obj as fabric.Group;
+            const groupCenter = group.getCenterPoint();
             group.forEachObject((groupObj: any) => {
               if (isFrameType(groupObj.type)) {
                 const frame = groupObj as unknown as IFrame;
-                const linkedImage = frame.getLinkedImage(canvas);
+                const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
                 if (linkedImage) {
                   linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
                   linkedImage.setCoords();
+
+                  // For frames in groups, need to calculate absolute position for clip path
+                  const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+                  const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+                  const absoluteLeft = groupCenter.x + relativeLeft;
+                  const absoluteTop = groupCenter.y + relativeTop;
+                  const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+                  const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+                  // Temporarily set frame to absolute position for correct clipPath
+                  const savedLeft = frame.left;
+                  const savedTop = frame.top;
+                  const savedScaleX = frame.scaleX;
+                  const savedScaleY = frame.scaleY;
+
+                  (frame as any).set({
+                    left: absoluteLeft,
+                    top: absoluteTop,
+                    scaleX: effectiveScaleX,
+                    scaleY: effectiveScaleY,
+                  });
+
+                  linkedImage.applyFrameClip(frame);
+
+                  // Restore original relative position
+                  (frame as any).set({
+                    left: savedLeft,
+                    top: savedTop,
+                    scaleX: savedScaleX,
+                    scaleY: savedScaleY,
+                  });
                 }
               }
             });
@@ -3111,13 +3183,17 @@ const buildEditor = ({
     },
 
     swapPagePositionsVisually: (pageA: number, pageB: number) => {
+      console.log("[SWAP_PAGES] Called with pageA:", pageA, "pageB:", pageB);
       if (pageA === pageB) return;
 
       const workspaces = getWorkspaces();
       const pageAWorkspace = workspaces.find((ws: any) => ws.pageNumber === pageA);
       const pageBWorkspace = workspaces.find((ws: any) => ws.pageNumber === pageB);
 
-      if (!pageAWorkspace || !pageBWorkspace) return;
+      if (!pageAWorkspace || !pageBWorkspace) {
+        console.log("[SWAP_PAGES] Workspace not found!");
+        return;
+      }
 
       const pageALeft = pageAWorkspace.left || 0;
       const pageBLeft = pageBWorkspace.left || 0;
@@ -3129,6 +3205,7 @@ const buildEditor = ({
       // Calculate delta for each page
       const deltaA = pageBLeft - pageALeft;
       const deltaB = pageALeft - pageBLeft;
+      console.log("[SWAP_PAGES] deltaA:", deltaA, "deltaB:", deltaB);
 
       // Collect objects on each page
       const allObjects = canvas.getObjects();
@@ -3138,6 +3215,8 @@ const buildEditor = ({
       allObjects.forEach((obj: any) => {
         if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
         if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+        // Skip framedImages - they will be moved with their linked frames
+        if (obj.type === "framedImage") return;
 
         const objCenter = obj.getCenterPoint();
 
@@ -3149,6 +3228,7 @@ const buildEditor = ({
           objCenter.y <= pageATop + pageHeight
         ) {
           objectsOnPageA.push(obj);
+          console.log("[SWAP_PAGES] Object on page A:", obj.type, "id:", obj.id);
         }
         // Check page B
         else if (
@@ -3158,8 +3238,12 @@ const buildEditor = ({
           objCenter.y <= pageBTop + pageHeight
         ) {
           objectsOnPageB.push(obj);
+          console.log("[SWAP_PAGES] Object on page B:", obj.type, "id:", obj.id);
         }
       });
+
+      console.log("[SWAP_PAGES] Total objects on page A:", objectsOnPageA.length);
+      console.log("[SWAP_PAGES] Total objects on page B:", objectsOnPageB.length);
 
       // Swap workspace positions
       (pageAWorkspace as any).set({ left: pageBLeft });
@@ -3179,29 +3263,68 @@ const buildEditor = ({
 
       // Move objects on page A
       objectsOnPageA.forEach((obj: any) => {
+        console.log("[SWAP_PAGES] Moving object on page A:", obj.type, "by deltaA:", deltaA);
         obj.set({ left: (obj.left || 0) + deltaA });
         obj.setCoords();
 
         // Handle linked images for frames
         if (isFrameType(obj.type)) {
           const frame = obj as unknown as IFrame;
-          const linkedImage = frame.getLinkedImage(canvas);
+          const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
+          console.log("[SWAP_PAGES] Frame found, linkedImage:", linkedImage ? "yes" : "no");
           if (linkedImage) {
+            console.log("[SWAP_PAGES] Moving linked image and applying clip");
             linkedImage.set({ left: (linkedImage.left || 0) + deltaA });
             linkedImage.setCoords();
+            // Update clip path to match new frame position
+            linkedImage.applyFrameClip(frame);
+            console.log("[SWAP_PAGES] Clip applied, clipPath:", linkedImage.clipPath);
           }
         }
 
         // Handle groups containing frames
         if (obj.type === "group") {
           const group = obj as fabric.Group;
+          const groupCenter = group.getCenterPoint();
+          console.log("[SWAP_PAGES] Group found, checking for frames inside");
           group.forEachObject((groupObj: any) => {
             if (isFrameType(groupObj.type)) {
               const frame = groupObj as unknown as IFrame;
-              const linkedImage = frame.getLinkedImage(canvas);
+              const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
               if (linkedImage) {
                 linkedImage.set({ left: (linkedImage.left || 0) + deltaA });
                 linkedImage.setCoords();
+
+                // For frames in groups, need to calculate absolute position for clip path
+                const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+                const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+                const absoluteLeft = groupCenter.x + relativeLeft;
+                const absoluteTop = groupCenter.y + relativeTop;
+                const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+                const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+                // Temporarily set frame to absolute position for correct clipPath
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+                const savedScaleX = frame.scaleX;
+                const savedScaleY = frame.scaleY;
+
+                (frame as any).set({
+                  left: absoluteLeft,
+                  top: absoluteTop,
+                  scaleX: effectiveScaleX,
+                  scaleY: effectiveScaleY,
+                });
+
+                linkedImage.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                  scaleX: savedScaleX,
+                  scaleY: savedScaleY,
+                });
               }
             }
           });
@@ -3216,23 +3339,57 @@ const buildEditor = ({
         // Handle linked images for frames
         if (isFrameType(obj.type)) {
           const frame = obj as unknown as IFrame;
-          const linkedImage = frame.getLinkedImage(canvas);
+          const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
           if (linkedImage) {
             linkedImage.set({ left: (linkedImage.left || 0) + deltaB });
             linkedImage.setCoords();
+            // Update clip path to match new frame position
+            linkedImage.applyFrameClip(frame);
           }
         }
 
         // Handle groups containing frames
         if (obj.type === "group") {
           const group = obj as fabric.Group;
+          const groupCenter = group.getCenterPoint();
           group.forEachObject((groupObj: any) => {
             if (isFrameType(groupObj.type)) {
               const frame = groupObj as unknown as IFrame;
-              const linkedImage = frame.getLinkedImage(canvas);
+              const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
               if (linkedImage) {
                 linkedImage.set({ left: (linkedImage.left || 0) + deltaB });
                 linkedImage.setCoords();
+
+                // For frames in groups, need to calculate absolute position for clip path
+                const relativeLeft = (frame.left || 0) * (group.scaleX || 1);
+                const relativeTop = (frame.top || 0) * (group.scaleY || 1);
+                const absoluteLeft = groupCenter.x + relativeLeft;
+                const absoluteTop = groupCenter.y + relativeTop;
+                const effectiveScaleX = (frame.scaleX || 1) * (group.scaleX || 1);
+                const effectiveScaleY = (frame.scaleY || 1) * (group.scaleY || 1);
+
+                // Temporarily set frame to absolute position for correct clipPath
+                const savedLeft = frame.left;
+                const savedTop = frame.top;
+                const savedScaleX = frame.scaleX;
+                const savedScaleY = frame.scaleY;
+
+                (frame as any).set({
+                  left: absoluteLeft,
+                  top: absoluteTop,
+                  scaleX: effectiveScaleX,
+                  scaleY: effectiveScaleY,
+                });
+
+                linkedImage.applyFrameClip(frame);
+
+                // Restore original relative position
+                (frame as any).set({
+                  left: savedLeft,
+                  top: savedTop,
+                  scaleX: savedScaleX,
+                  scaleY: savedScaleY,
+                });
               }
             }
           });
