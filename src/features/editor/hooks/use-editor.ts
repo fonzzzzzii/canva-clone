@@ -3498,6 +3498,7 @@ export const useEditor = ({
     canvas,
     setSelectedObjects,
     clearSelectionCallback,
+    setFocusedPageNumber,
   });
 
   const toggleGrid = useCallback(() => {
