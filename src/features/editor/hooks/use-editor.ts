@@ -583,6 +583,20 @@ const buildEditor = ({
             objectsToRemove.push(linkedFrame);
           }
         }
+
+        // If deleting a group, also delete linked images for any frames inside
+        if (object.type === "group") {
+          const group = object as fabric.Group;
+          group.forEachObject((obj) => {
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
+              const linkedImage = frame.getLinkedImage(canvas);
+              if (linkedImage && !objectsToRemove.includes(linkedImage)) {
+                objectsToRemove.push(linkedImage);
+              }
+            }
+          });
+        }
       });
 
       objectsToRemove.forEach((obj) => canvas.remove(obj));
