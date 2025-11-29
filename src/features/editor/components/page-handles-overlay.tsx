@@ -99,6 +99,7 @@ export const PageHandlesOverlay = ({
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lastOverId, setLastOverId] = useState<string | null>(null);
+  const [hoveredPageNumber, setHoveredPageNumber] = useState<number | null>(null);
 
   // Ref for animation frame cleanup
   const rafIdRef = useRef<number | null>(null);
@@ -201,6 +202,68 @@ export const PageHandlesOverlay = ({
     };
   }, [editor.canvas, calculatePagePositions]);
 
+  // Track mouse hover to show page handle when hovering over a page
+  useEffect(() => {
+    if (!editor.canvas || !containerRef.current) return;
+
+    const canvas = editor.canvas;
+    const container = containerRef.current;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const containerRect = container.getBoundingClientRect();
+      const mouseX = e.clientX - containerRect.left;
+      const mouseY = e.clientY - containerRect.top;
+
+      // Convert screen coordinates to canvas coordinates
+      const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+      const zoom = canvas.getZoom();
+      const canvasX = (mouseX - vpt[4]) / zoom;
+      const canvasY = (mouseY - vpt[5]) / zoom;
+
+      // Check which page the mouse is over
+      const pages = editor.getPages();
+      let foundPage: number | null = null;
+
+      for (const page of pages) {
+        const pageRect = editor.getPageByNumber(page.pageNumber);
+        if (!pageRect) continue;
+
+        const pageLeft = pageRect.left || 0;
+        const pageTop = pageRect.top || 0;
+        const pageWidth = (pageRect as any).width || 0;
+        const pageHeight = (pageRect as any).height || 0;
+
+        // Extend detection area above the page to include the menu handle area
+        // The handle is positioned ~50px above the page top (40px offset + handle height)
+        const extendedTop = pageTop - 60 / zoom; // Account for zoom level
+
+        if (
+          canvasX >= pageLeft &&
+          canvasX <= pageLeft + pageWidth &&
+          canvasY >= extendedTop &&
+          canvasY <= pageTop + pageHeight
+        ) {
+          foundPage = page.pageNumber;
+          break;
+        }
+      }
+
+      setHoveredPageNumber(foundPage);
+    };
+
+    const handleMouseLeave = () => {
+      setHoveredPageNumber(null);
+    };
+
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [editor, containerRef]);
+
   const handleAddSpreadBefore = (pageNumber: number) => {
     const spreadIndex = Math.floor((pageNumber - 1) / 2);
     if (spreadIndex === 0) {
@@ -262,8 +325,6 @@ export const PageHandlesOverlay = ({
   const visiblePositions = pagePositions.filter((pos) => pos.isVisible);
   const sortableIds = visiblePositions.map((pos) => `page-${pos.pageNumber}`);
 
-  // Get focused page number to show only its handle (unless dragging)
-  const focusedPageNumber = editor.getFocusedPageNumber();
   const isDragging = activeId !== null;
 
   // Find the active page info for the drag overlay
@@ -290,7 +351,7 @@ export const PageHandlesOverlay = ({
               editor={editor}
               onAddSpreadBefore={() => handleAddSpreadBefore(pos.pageNumber)}
               onAddSpreadAfter={() => handleAddSpreadAfter(pos.pageNumber)}
-              isVisible={isDragging || pos.pageNumber === focusedPageNumber}
+              isVisible={isDragging || pos.pageNumber === hoveredPageNumber}
             />
           ))}
         </SortableContext>
