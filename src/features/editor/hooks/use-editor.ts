@@ -72,6 +72,7 @@ const buildEditor = ({
   focusedPageNumber,
   setFocusedPageNumber,
   panModeRef,
+  justExitedPanModeRef,
 }: BuildEditorProps): Editor => {
   const generateSaveOptions = () => {
     const { width, height, left, top } = getWorkspace() as fabric.Rect;
@@ -345,6 +346,10 @@ const buildEditor = ({
       canvas.isDrawingMode = false;
     },
     enablePanMode: () => {
+      // Blur any focused element to prevent spacebar from triggering button clicks
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       canvas.discardActiveObject();
       canvas.renderAll();
       panModeRef.current = true;
@@ -359,6 +364,11 @@ const buildEditor = ({
     },
     disablePanMode: () => {
       panModeRef.current = false;
+      // Temporarily mark that we just exited pan mode to prevent accidental page selection
+      justExitedPanModeRef.current = true;
+      setTimeout(() => {
+        justExitedPanModeRef.current = false;
+      }, 100);
       canvas.defaultCursor = 'default';
       canvas.hoverCursor = 'move';
       // Re-enable selection
@@ -3456,6 +3466,7 @@ export const useEditor = ({
   const [strokeDashArray, setStrokeDashArray] = useState<number[]>(STROKE_DASH_ARRAY);
   const activeFramedImageRef = useRef<FramedImage | null>(null);
   const panModeRef = useRef<boolean>(false);
+  const justExitedPanModeRef = useRef<boolean>(false);
   const [isPanModeState, setIsPanModeState] = useState(false);
 
   const [snappingOptions, setSnappingOptions] = useState<SnappingOptions>({
@@ -3592,6 +3603,10 @@ export const useEditor = ({
   // Pan mode callbacks for hotkeys
   const enablePanModeCallback = useCallback(() => {
     if (!canvas) return;
+    // Blur any focused element to prevent spacebar from triggering button clicks
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     canvas.discardActiveObject();
     canvas.renderAll();
     panModeRef.current = true;
@@ -3609,6 +3624,11 @@ export const useEditor = ({
     if (!canvas) return;
     panModeRef.current = false;
     setIsPanModeState(false);
+    // Temporarily mark that we just exited pan mode to prevent accidental page selection
+    justExitedPanModeRef.current = true;
+    setTimeout(() => {
+      justExitedPanModeRef.current = false;
+    }, 100);
     canvas.defaultCursor = 'default';
     canvas.hoverCursor = 'move';
     canvas.selection = true;
@@ -3856,8 +3876,8 @@ export const useEditor = ({
     if (!canvas) return;
 
     const handleMouseDown = (e: fabric.IEvent) => {
-      // Skip page selection when in pan mode
-      if (panModeRef.current) return;
+      // Skip page selection when in pan mode or just exited pan mode
+      if (panModeRef.current || justExitedPanModeRef.current) return;
 
       const workspaces = canvas
         .getObjects()
@@ -4940,6 +4960,7 @@ export const useEditor = ({
         focusedPageNumber,
         setFocusedPageNumber,
         panModeRef,
+        justExitedPanModeRef,
       });
     }
 
