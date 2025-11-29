@@ -7,10 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ResponseType } from "@/features/projects/api/use-get-project";
 import { useUpdateProject } from "@/features/projects/api/use-update-project";
 
-import { 
-  ActiveTool, 
+import {
+  ActiveTool,
   selectionDependentTools
 } from "@/features/editor/types";
+import { isFrameType } from "@/features/editor/objects/image-frame";
 import { Navbar } from "@/features/editor/components/navbar";
 import { Footer } from "@/features/editor/components/footer";
 import { useEditor } from "@/features/editor/hooks/use-editor";
@@ -320,7 +321,7 @@ export const Editor = ({ initialData }: EditorProps) => {
                 // Check from top to bottom (reverse order)
                 for (let i = objects.length - 1; i >= 0; i--) {
                   const obj = objects[i];
-                  if (obj.type === "imageFrame" && obj.containsPoint(new fabric.Point(point.x, point.y))) {
+                  if (isFrameType(obj.type) && obj.containsPoint(new fabric.Point(point.x, point.y))) {
                     foundFrame = obj;
                     break;
                   }

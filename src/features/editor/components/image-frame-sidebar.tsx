@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fabric } from "fabric";
 
 import {
   ActiveTool,
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { IFrame, isFrameType } from "@/features/editor/objects/image-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
 
 interface ImageFrameSidebarProps {
@@ -27,10 +28,10 @@ export const ImageFrameSidebar = ({
 }: ImageFrameSidebarProps) => {
   const selectedObject = useMemo(() => editor?.selectedObjects[0], [editor?.selectedObjects]);
 
-  // Check if selected object is an ImageFrame or FramedImage
-  const imageFrame = useMemo(() => {
-    if (selectedObject?.type === "imageFrame") {
-      return selectedObject as ImageFrame;
+  // Check if selected object is any frame type or FramedImage
+  const frame = useMemo(() => {
+    if (isFrameType(selectedObject?.type)) {
+      return selectedObject as unknown as IFrame;
     }
     return null;
   }, [selectedObject]);
@@ -44,20 +45,35 @@ export const ImageFrameSidebar = ({
 
   const [frameWidth, setFrameWidth] = useState(400);
   const [frameHeight, setFrameHeight] = useState(400);
+  const isCircle = frame?.type === "circleFrame";
+
+  // Helper to get frame dimensions (handles circles vs other shapes)
+  const getFrameDimensions = (f: IFrame): { width: number; height: number } => {
+    if (f.type === "circleFrame") {
+      const radius = ((f as any).radius || 200) * (f.scaleX || 1);
+      return { width: radius * 2, height: radius * 2 };
+    }
+    return {
+      width: ((f as any).width || 400) * (f.scaleX || 1),
+      height: ((f as any).height || 400) * (f.scaleY || 1),
+    };
+  };
 
   // Update state when selection changes
   useEffect(() => {
-    if (imageFrame) {
-      setFrameWidth((imageFrame.width || 400) * (imageFrame.scaleX || 1));
-      setFrameHeight((imageFrame.height || 400) * (imageFrame.scaleY || 1));
+    if (frame) {
+      const dims = getFrameDimensions(frame);
+      setFrameWidth(dims.width);
+      setFrameHeight(dims.height);
     } else if (framedImage && editor?.canvas) {
-      const frame = framedImage.getLinkedFrame(editor.canvas);
-      if (frame) {
-        setFrameWidth((frame.width || 400) * (frame.scaleX || 1));
-        setFrameHeight((frame.height || 400) * (frame.scaleY || 1));
+      const linkedFrame = framedImage.getLinkedFrame(editor.canvas);
+      if (linkedFrame) {
+        const dims = getFrameDimensions(linkedFrame);
+        setFrameWidth(dims.width);
+        setFrameHeight(dims.height);
       }
     }
-  }, [imageFrame, framedImage, editor?.canvas]);
+  }, [frame, framedImage, editor?.canvas]);
 
   const onClose = () => {
     onChangeActiveTool("select");
@@ -67,18 +83,28 @@ export const ImageFrameSidebar = ({
     const width = parseInt(value) || 400;
     setFrameWidth(width);
 
-    if (imageFrame && editor?.canvas) {
-      // Reset scale and set new width
-      imageFrame.set({
-        width: width,
-        scaleX: 1,
-      });
-      imageFrame.setCoords();
+    if (frame && editor?.canvas) {
+      if (isCircle) {
+        // For circles, set radius (width = diameter)
+        (frame as any).set({
+          radius: width / 2,
+          scaleX: 1,
+          scaleY: 1,
+        });
+        setFrameHeight(width); // Keep diameter equal
+      } else {
+        // Reset scale and set new width
+        (frame as any).set({
+          width: width,
+          scaleX: 1,
+        });
+      }
+      (frame as fabric.Object).setCoords();
 
       // Update linked image's clipPath
-      const linkedImage = imageFrame.getLinkedImage(editor.canvas) as FramedImage | null;
+      const linkedImage = frame.getLinkedImage(editor.canvas) as FramedImage | null;
       if (linkedImage) {
-        linkedImage.applyFrameClip(imageFrame);
+        linkedImage.applyFrameClip(frame);
       }
 
       editor.canvas.requestRenderAll();
@@ -89,18 +115,28 @@ export const ImageFrameSidebar = ({
     const height = parseInt(value) || 400;
     setFrameHeight(height);
 
-    if (imageFrame && editor?.canvas) {
-      // Reset scale and set new height
-      imageFrame.set({
-        height: height,
-        scaleY: 1,
-      });
-      imageFrame.setCoords();
+    if (frame && editor?.canvas) {
+      if (isCircle) {
+        // For circles, set radius (height = diameter)
+        (frame as any).set({
+          radius: height / 2,
+          scaleX: 1,
+          scaleY: 1,
+        });
+        setFrameWidth(height); // Keep diameter equal
+      } else {
+        // Reset scale and set new height
+        (frame as any).set({
+          height: height,
+          scaleY: 1,
+        });
+      }
+      (frame as fabric.Object).setCoords();
 
       // Update linked image's clipPath
-      const linkedImage = imageFrame.getLinkedImage(editor.canvas) as FramedImage | null;
+      const linkedImage = frame.getLinkedImage(editor.canvas) as FramedImage | null;
       if (linkedImage) {
-        linkedImage.applyFrameClip(imageFrame);
+        linkedImage.applyFrameClip(frame);
       }
 
       editor.canvas.requestRenderAll();
@@ -108,7 +144,7 @@ export const ImageFrameSidebar = ({
   };
 
   // Show sidebar for both frame and image in edit mode
-  if (!imageFrame && !framedImage) {
+  if (!frame && !framedImage) {
     return null;
   }
 
@@ -126,12 +162,16 @@ export const ImageFrameSidebar = ({
       <ScrollArea>
         <div className="p-4 space-y-6">
           {/* Frame Dimensions - only show when frame is selected */}
-          {imageFrame && (
+          {frame && (
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Frame Size</Label>
+              <Label className="text-sm font-medium">
+                {isCircle ? "Circle Size" : "Frame Size"}
+              </Label>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Width</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    {isCircle ? "Diameter" : "Width"}
+                  </Label>
                   <Input
                     type="number"
                     value={Math.round(frameWidth)}
@@ -139,15 +179,17 @@ export const ImageFrameSidebar = ({
                     className="h-8"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Height</Label>
-                  <Input
-                    type="number"
-                    value={Math.round(frameHeight)}
-                    onChange={(e) => handleFrameHeightChange(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
+                {!isCircle && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Height</Label>
+                    <Input
+                      type="number"
+                      value={Math.round(frameHeight)}
+                      onChange={(e) => handleFrameHeightChange(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

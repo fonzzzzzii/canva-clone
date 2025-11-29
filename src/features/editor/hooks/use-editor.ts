@@ -30,7 +30,10 @@ import {
   isTextType,
   transformText
 } from "@/features/editor/utils";
-import { ImageFrame } from "@/features/editor/objects/image-frame";
+import { ImageFrame, IFrame, isFrameType } from "@/features/editor/objects/image-frame";
+import { CircleFrame } from "@/features/editor/objects/circle-frame";
+import { TriangleFrame } from "@/features/editor/objects/triangle-frame";
+import { PolygonFrame } from "@/features/editor/objects/polygon-frame";
 import { FramedImage } from "@/features/editor/objects/framed-image";
 import { useHotkeys } from "@/features/editor/hooks/use-hotkeys";
 import { useClipboard } from "@/features/editor/hooks//use-clipboard";
@@ -470,7 +473,7 @@ const buildEditor = ({
         },
       );
     },
-    replaceFrameImage: (frame: ImageFrame, newImageUrl: string) => {
+    replaceFrameImage: (frame: IFrame, newImageUrl: string) => {
       const linkedImage = frame.getLinkedImage(canvas) as FramedImage | null;
 
       fabric.Image.fromURL(
@@ -479,9 +482,17 @@ const buildEditor = ({
           const imgWidth = loadedImage.width || 1;
           const imgHeight = loadedImage.height || 1;
 
-          // Get frame dimensions
-          const frameWidth = (frame.width || 100) * (frame.scaleX || 1);
-          const frameHeight = (frame.height || 100) * (frame.scaleY || 1);
+          // Get frame dimensions - handle circles separately (use radius)
+          let frameWidth: number;
+          let frameHeight: number;
+          if (frame.type === "circleFrame") {
+            const radius = ((frame as any).radius || 100) * (frame.scaleX || 1);
+            frameWidth = radius * 2;
+            frameHeight = radius * 2;
+          } else {
+            frameWidth = ((frame as any).width || 100) * (frame.scaleX || 1);
+            frameHeight = ((frame as any).height || 100) * (frame.scaleY || 1);
+          }
 
           // Calculate scale to cover the frame
           const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight);
@@ -494,14 +505,17 @@ const buildEditor = ({
           // Generate new image ID
           const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+          // Get frame's center point (frame may have different origin)
+          const frameCenter = (frame as fabric.Object).getCenterPoint();
+
           // Create new framed image
           const element = (loadedImage as any).getElement();
           const newFramedImage = new FramedImage(element, {
             id: newImageId,
             linkedFrameId: frame.id,
             imageUrl: newImageUrl,
-            left: frame.left,
-            top: frame.top,
+            left: frameCenter.x,
+            top: frameCenter.y,
             originX: "center",
             originY: "center",
           });
@@ -521,6 +535,9 @@ const buildEditor = ({
           const frameIndex = canvas.getObjects().indexOf(frame);
           canvas.insertAt(newFramedImage, frameIndex, false);
 
+          // Update frame styling (remove placeholder now that it has an image)
+          frame.updatePlaceholderStyle(canvas);
+
           canvas.requestRenderAll();
           save();
         },
@@ -536,8 +553,8 @@ const buildEditor = ({
         objectsToRemove.push(object);
 
         // If deleting a frame, also delete its linked image
-        if (object.type === "imageFrame") {
-          const frame = object as ImageFrame;
+        if (isFrameType(object.type)) {
+          const frame = object as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage && !objectsToRemove.includes(linkedImage)) {
             objectsToRemove.push(linkedImage);
@@ -776,47 +793,36 @@ const buildEditor = ({
       canvas.renderAll();
     },
     addCircle: () => {
-      const object = new fabric.Circle({
-        ...CIRCLE_OPTIONS,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-        strokeDashArray: strokeDashArray,
+      // Create a CircleFrame (can accept images via drag-drop)
+      const object = new CircleFrame({
+        radius: CIRCLE_OPTIONS.radius,
       });
 
       addToCanvas(object);
     },
     addSoftRectangle: () => {
-      const object = new fabric.Rect({
-        ...RECTANGLE_OPTIONS,
+      // Create an ImageFrame (can accept images via drag-drop)
+      const object = new ImageFrame({
+        width: RECTANGLE_OPTIONS.width,
+        height: RECTANGLE_OPTIONS.height,
         rx: 50,
         ry: 50,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-        strokeDashArray: strokeDashArray,
       });
 
       addToCanvas(object);
     },
     addRectangle: () => {
-      const object = new fabric.Rect({
-        ...RECTANGLE_OPTIONS,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-        strokeDashArray: strokeDashArray,
+      // Create an ImageFrame (can accept images via drag-drop)
+      const object = new ImageFrame({
+        width: RECTANGLE_OPTIONS.width,
+        height: RECTANGLE_OPTIONS.height,
       });
 
       addToCanvas(object);
     },
     addTriangle: () => {
-      const object = new fabric.Triangle({
+      const object = new TriangleFrame({
         ...TRIANGLE_OPTIONS,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-        strokeDashArray: strokeDashArray,
       });
 
       addToCanvas(object);
@@ -825,7 +831,7 @@ const buildEditor = ({
       const HEIGHT = TRIANGLE_OPTIONS.height;
       const WIDTH = TRIANGLE_OPTIONS.width;
 
-      const object = new fabric.Polygon(
+      const object = new PolygonFrame(
         [
           { x: 0, y: 0 },
           { x: WIDTH, y: 0 },
@@ -833,10 +839,6 @@ const buildEditor = ({
         ],
         {
           ...TRIANGLE_OPTIONS,
-          fill: fillColor,
-          stroke: strokeColor,
-          strokeWidth: strokeWidth,
-          strokeDashArray: strokeDashArray,
         }
       );
 
@@ -846,7 +848,7 @@ const buildEditor = ({
       const HEIGHT = DIAMOND_OPTIONS.height;
       const WIDTH = DIAMOND_OPTIONS.width;
 
-      const object = new fabric.Polygon(
+      const object = new PolygonFrame(
         [
           { x: WIDTH / 2, y: 0 },
           { x: WIDTH, y: HEIGHT / 2 },
@@ -855,10 +857,6 @@ const buildEditor = ({
         ],
         {
           ...DIAMOND_OPTIONS,
-          fill: fillColor,
-          stroke: strokeColor,
-          strokeWidth: strokeWidth,
-          strokeDashArray: strokeDashArray,
         }
       );
       addToCanvas(object);
@@ -998,8 +996,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1012,12 +1010,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1034,15 +1032,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -1179,8 +1192,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1193,12 +1206,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1215,15 +1228,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -1360,8 +1388,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1374,12 +1402,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1396,15 +1424,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -1541,8 +1584,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1555,12 +1598,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1577,15 +1620,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -1721,8 +1779,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1735,12 +1793,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1757,15 +1815,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -1902,8 +1975,8 @@ const buildEditor = ({
       if (!activeObj) return;
 
       const syncLinkedImage = (obj: fabric.Object) => {
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const image = frame.getLinkedImage(canvas) as FramedImage | null;
           if (image && !image.isInEditMode) {
             image.set({
@@ -1916,12 +1989,12 @@ const buildEditor = ({
         }
       };
 
-      // Sync all ImageFrames inside a group with their linked images
+      // Sync all frames inside a group with their linked images
       const syncGroupImages = (group: fabric.Group) => {
         const groupCenter = group.getCenterPoint();
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               // Account for group scale when calculating absolute position
@@ -1938,15 +2011,30 @@ const buildEditor = ({
                 left: absoluteLeft + image.offsetX,
                 top: absoluteTop + image.offsetY,
               });
-              const tempFrame = {
+
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
-              image.applyFrameClip(tempFrame);
+              });
+
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -2132,8 +2220,8 @@ const buildEditor = ({
           item.obj.set({ left: (item.obj.left || 0) + offset });
           item.obj.setCoords();
 
-          if (item.obj.type === "imageFrame") {
-            const frame = item.obj as ImageFrame;
+          if (isFrameType(item.obj.type)) {
+            const frame = item.obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               image.set({
@@ -2208,8 +2296,8 @@ const buildEditor = ({
           item.obj.set({ top: (item.obj.top || 0) + offset });
           item.obj.setCoords();
 
-          if (item.obj.type === "imageFrame") {
-            const frame = item.obj as ImageFrame;
+          if (isFrameType(item.obj.type)) {
+            const frame = item.obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
             if (image && !image.isInEditMode) {
               image.set({
@@ -2301,9 +2389,9 @@ const buildEditor = ({
         });
         (obj as any).locked = true;
 
-        // If it's an ImageFrame, also lock linked image
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        // If it's a frame, also lock linked image
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage) {
             linkedImage.set({
@@ -2333,9 +2421,9 @@ const buildEditor = ({
         });
         (obj as any).locked = false;
 
-        // If it's an ImageFrame, also unlock linked image
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        // If it's a frame, also unlock linked image
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage) {
             linkedImage.set({
@@ -2364,9 +2452,9 @@ const buildEditor = ({
       canvas.getActiveObjects().forEach((obj) => {
         canvas.bringToFront(obj);
 
-        // If it's an ImageFrame, also bring linked image to front (but behind frame)
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        // If it's a frame, also bring linked image to front (but behind frame)
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage) {
             canvas.bringToFront(linkedImage);
@@ -2388,9 +2476,9 @@ const buildEditor = ({
       canvas.getActiveObjects().forEach((obj) => {
         canvas.sendToBack(obj);
 
-        // If it's an ImageFrame, also send linked image to back (but in front of frame)
-        if (obj.type === "imageFrame") {
-          const frame = obj as ImageFrame;
+        // If it's a frame, also send linked image to back (but in front of frame)
+        if (isFrameType(obj.type)) {
+          const frame = obj as unknown as IFrame;
           const linkedImage = frame.getLinkedImage(canvas);
           if (linkedImage) {
             canvas.sendToBack(linkedImage);
@@ -2511,8 +2599,8 @@ const buildEditor = ({
           obj.setCoords();
 
           // Also move linked image if this is a frame
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const linkedImage = frame.getLinkedImage(canvas);
             if (linkedImage) {
               linkedImage.set({ left: (linkedImage.left || 0) + deltaX });
@@ -2581,15 +2669,12 @@ const buildEditor = ({
           const frameWidth = (frame.width / 100) * pageWidth;
           const frameHeight = (frame.height / 100) * pageHeight;
 
+          // ImageFrame constructor now handles placeholder styles automatically
           const imageFrame = new ImageFrame({
             left: frameLeft,
             top: frameTop,
             width: frameWidth,
             height: frameHeight,
-            fill: "transparent",
-            stroke: "#cccccc",
-            strokeWidth: 2,
-            strokeDashArray: [5, 5],
           });
 
           canvas.add(imageFrame);
@@ -2659,8 +2744,8 @@ const buildEditor = ({
             objectsToRemove.push(obj);
 
             // Also remove linked image if this is a frame
-            if (obj.type === "imageFrame") {
-              const frame = obj as ImageFrame;
+            if (isFrameType(obj.type)) {
+              const frame = obj as unknown as IFrame;
               const linkedImage = frame.getLinkedImage(canvas);
               if (linkedImage) {
                 objectsToRemove.push(linkedImage);
@@ -2758,15 +2843,12 @@ const buildEditor = ({
         const frameWidth = (frame.width / 100) * pageWidth;
         const frameHeight = (frame.height / 100) * pageHeight;
 
+        // ImageFrame constructor now handles placeholder styles automatically
         const imageFrame = new ImageFrame({
           left: frameLeft,
           top: frameTop,
           width: frameWidth,
           height: frameHeight,
-          fill: "transparent",
-          stroke: "#cccccc",
-          strokeWidth: 2,
-          strokeDashArray: [5, 5],
         });
 
         canvas.add(imageFrame);
@@ -3133,8 +3215,8 @@ export const useEditor = ({
       const target = e.target;
 
       // Double-click on frame enters image edit mode
-      if (target?.type === "imageFrame") {
-        const frame = target as ImageFrame;
+      if (isFrameType(target?.type)) {
+        const frame = target as unknown as IFrame;
         const image = frame.getLinkedImage(canvas);
 
         if (image) {
@@ -3158,11 +3240,11 @@ export const useEditor = ({
     if (!canvas) return;
 
     // Helper to sync a frame with its linked image
-    const syncFrameImage = (frame: ImageFrame) => {
+    const syncFrameImage = (frame: IFrame) => {
       const image = frame.getLinkedImage(canvas) as FramedImage | null;
       if (image && !image.isInEditMode) {
         // Get the frame's absolute position (accounting for group transforms)
-        const frameCenter = frame.getCenterPoint();
+        const frameCenter = (frame as fabric.Object).getCenterPoint();
 
         image.set({
           left: frameCenter.x + image.offsetX,
@@ -3182,9 +3264,9 @@ export const useEditor = ({
         const selectionObjects = selection.getObjects();
 
         selection.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
+          if (isFrameType(obj.type)) {
             // For objects in a group, we need to calculate their absolute position
-            const frame = obj as ImageFrame;
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3207,40 +3289,37 @@ export const useEditor = ({
               const effectiveScaleX = (frame.scaleX || 1) * (selection.scaleX || 1);
               const effectiveScaleY = (frame.scaleY || 1) * (selection.scaleY || 1);
 
-              if (imageIsInSelection) {
-                // Image is being moved by fabric.js as part of selection
-                // Just update the clip path to match frame's new position
-                const tempFrame = {
-                  left: absoluteLeft,
-                  top: absoluteTop,
-                  width: frame.width,
-                  height: frame.height,
-                  scaleX: effectiveScaleX,
-                  scaleY: effectiveScaleY,
-                } as ImageFrame;
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
 
-                image.applyFrameClip(tempFrame);
-                image.setCoords();
-              } else {
+              (frame as any).set({
+                left: absoluteLeft,
+                top: absoluteTop,
+                scaleX: effectiveScaleX,
+                scaleY: effectiveScaleY,
+              });
+
+              if (!imageIsInSelection) {
                 // Image is NOT in selection - we need to move it manually
                 image.set({
                   left: absoluteLeft + image.offsetX,
                   top: absoluteTop + image.offsetY,
                 });
-
-                // Create a temporary frame position for clipping
-                const tempFrame = {
-                  left: absoluteLeft,
-                  top: absoluteTop,
-                  width: frame.width,
-                  height: frame.height,
-                  scaleX: effectiveScaleX,
-                  scaleY: effectiveScaleY,
-                } as ImageFrame;
-
-                image.applyFrameClip(tempFrame);
-                image.setCoords();
               }
+
+              image.applyFrameClip(frame);
+              image.setCoords();
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
             }
           }
         });
@@ -3253,8 +3332,8 @@ export const useEditor = ({
         const groupCenter = group.getCenterPoint();
 
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3275,17 +3354,29 @@ export const useEditor = ({
                 top: absoluteTop + image.offsetY,
               });
 
-              // Create a temporary frame position for clipping with effective scale
-              const tempFrame = {
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              });
 
-              image.applyFrameClip(tempFrame);
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
+
               image.setCoords();
             }
           }
@@ -3294,8 +3385,8 @@ export const useEditor = ({
       }
 
       // Handle single frame selection
-      if (target?.type === "imageFrame") {
-        syncFrameImage(target as ImageFrame);
+      if (isFrameType(target?.type)) {
+        syncFrameImage(target as unknown as IFrame);
       }
     };
 
@@ -3322,8 +3413,8 @@ export const useEditor = ({
         const groupCenter = selection.getCenterPoint();
 
         selectionObjects.forEach((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3370,18 +3461,29 @@ export const useEditor = ({
               }
               // If image IS in selection, fabric.js handles its transform, just update clip
 
-              // Create temp frame with absolute/effective values for clipping
-              const tempFrame = {
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              });
 
-              image.applyFrameClip(tempFrame);
+              image.applyFrameClip(frame);
               image.setCoords();
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
             }
           }
         });
@@ -3390,8 +3492,8 @@ export const useEditor = ({
         return;
       }
 
-      if (target?.type === "imageFrame") {
-        const frame = target as ImageFrame;
+      if (isFrameType(target?.type)) {
+        const frame = target as unknown as IFrame;
         const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
         if (image && !image.isInEditMode) {
@@ -3440,8 +3542,8 @@ export const useEditor = ({
         const groupCenter = group.getCenterPoint();
 
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3479,17 +3581,28 @@ export const useEditor = ({
                 scaleY: scaledCustomScale,
               });
 
-              // Create temp frame with absolute/effective values for clipping
-              const tempFrame = {
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              });
 
-              image.applyFrameClip(tempFrame);
+              image.applyFrameClip(frame);
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
             }
           }
         });
@@ -3525,8 +3638,8 @@ export const useEditor = ({
         const groupCenter = selection.getCenterPoint();
 
         selectionObjects.forEach((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3573,18 +3686,29 @@ export const useEditor = ({
                 });
               }
 
-              // Create temp frame for clipping
-              const tempFrame = {
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              });
 
-              image.applyFrameClip(tempFrame);
+              image.applyFrameClip(frame);
               image.setCoords();
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
             }
           }
         });
@@ -3652,8 +3776,8 @@ export const useEditor = ({
         }
 
         group.forEachObject((obj) => {
-          if (obj.type === "imageFrame") {
-            const frame = obj as ImageFrame;
+          if (isFrameType(obj.type)) {
+            const frame = obj as unknown as IFrame;
             const image = frame.getLinkedImage(canvas) as FramedImage | null;
 
             if (image && !image.isInEditMode) {
@@ -3693,18 +3817,29 @@ export const useEditor = ({
                 scaleY: image.customScaleY,
               });
 
-              // Create temp frame with absolute/effective values for clipping
-              const tempFrame = {
+              // Temporarily modify frame position/scale to get correct clip path
+              const savedLeft = frame.left;
+              const savedTop = frame.top;
+              const savedScaleX = frame.scaleX;
+              const savedScaleY = frame.scaleY;
+
+              (frame as any).set({
                 left: absoluteLeft,
                 top: absoluteTop,
-                width: frame.width,
-                height: frame.height,
                 scaleX: effectiveScaleX,
                 scaleY: effectiveScaleY,
-              } as ImageFrame;
+              });
 
-              image.applyFrameClip(tempFrame);
+              image.applyFrameClip(frame);
               image.setCoords();
+
+              // Restore original position/scale
+              (frame as any).set({
+                left: savedLeft,
+                top: savedTop,
+                scaleX: savedScaleX,
+                scaleY: savedScaleY,
+              });
             }
           }
         });
@@ -3751,8 +3886,8 @@ export const useEditor = ({
       }
 
       // Handle single frame
-      if (target?.type === "imageFrame") {
-        const frame = target as ImageFrame;
+      if (isFrameType(target?.type)) {
+        const frame = target as unknown as IFrame;
 
         const image = frame.getLinkedImage(canvas) as FramedImage | null;
         if (image && !image.isInEditMode) {

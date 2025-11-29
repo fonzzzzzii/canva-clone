@@ -1,70 +1,36 @@
 import { fabric } from "fabric";
 import { v4 as uuidv4 } from "uuid";
+import { FRAME_PLACEHOLDER_STYLES, FRAME_WITH_IMAGE_STYLES } from "./image-frame";
 
-// Common interface for all frame types
-export interface IFrame extends fabric.Object {
-  id: string;
-  linkedImageId: string | null;
-  _previousLeft: number;
-  _previousTop: number;
-  _previousScaleX: number;
-  _previousScaleY: number;
-  getLinkedImage(canvas: fabric.Canvas): fabric.Image | null;
-  updatePlaceholderStyle(canvas: fabric.Canvas): void;
-  getClipPath(): fabric.Object;
-  updatePreviousTransform(): void;
-}
-
-// Frame type names
-export const FRAME_TYPES = ["imageFrame", "circleFrame", "triangleFrame", "polygonFrame"] as const;
-export type FrameType = (typeof FRAME_TYPES)[number];
-
-export function isFrameType(type: string | undefined): type is FrameType {
-  return FRAME_TYPES.includes(type as FrameType);
-}
-
-// Placeholder styles for empty frames
-export const FRAME_PLACEHOLDER_STYLES = {
-  fill: "#f3f4f6",           // Light gray background
-  stroke: "#d1d5db",         // Gray border
-  strokeWidth: 2,
-  strokeDashArray: [8, 4],   // Dashed line
-};
-
-// Styles when frame has an image
-export const FRAME_WITH_IMAGE_STYLES = {
-  fill: "transparent",
-  stroke: undefined as string | undefined,
-  strokeWidth: 0,
-  strokeDashArray: undefined as number[] | undefined,
-};
-
-interface ImageFrameOptions extends fabric.IRectOptions {
+interface PolygonFrameOptions extends fabric.IPolylineOptions {
   id?: string;
   linkedImageId?: string;
+  points?: { x: number; y: number }[];
 }
 
-export class ImageFrame extends fabric.Rect {
+export class PolygonFrame extends fabric.Polygon {
   public id: string;
   public linkedImageId: string | null = null;
   public _previousLeft: number = 0;
   public _previousTop: number = 0;
   public _previousScaleX: number = 1;
   public _previousScaleY: number = 1;
+  private _originalPoints: { x: number; y: number }[];
 
-  constructor(options: ImageFrameOptions = {}) {
+  constructor(points: { x: number; y: number }[], options: PolygonFrameOptions = {}) {
     // Start with placeholder styles if no image linked
     const hasImage = !!options.linkedImageId;
     const initialStyles = hasImage ? FRAME_WITH_IMAGE_STYLES : FRAME_PLACEHOLDER_STYLES;
 
-    super({
+    super(points, {
       ...options,
       ...initialStyles,
     });
 
-    this.type = "imageFrame";
+    this.type = "polygonFrame";
     this.id = options.id || uuidv4();
     this.linkedImageId = options.linkedImageId || null;
+    this._originalPoints = [...points];
 
     // Store initial position/scale for delta calculations
     this._previousLeft = this.left || 0;
@@ -74,7 +40,7 @@ export class ImageFrame extends fabric.Rect {
 
     // Disable rotation control for frames
     this.setControlsVisibility({
-      mtr: false, // No rotation handle
+      mtr: false,
     });
   }
 
@@ -95,8 +61,6 @@ export class ImageFrame extends fabric.Rect {
 
   /**
    * Update frame styling based on whether it has an image
-   * - Empty frame: gray placeholder with dashed border
-   * - With image: transparent (image shows through)
    */
   updatePlaceholderStyle(canvas: fabric.Canvas) {
     const hasImage = this.linkedImageId && this.getLinkedImage(canvas);
@@ -110,20 +74,22 @@ export class ImageFrame extends fabric.Rect {
   }
 
   /**
-   * Get a clipPath object matching this frame's shape (rectangle)
+   * Get a clipPath object matching this frame's shape
    */
-  getClipPath(): fabric.Rect {
-    const width = (this.width || 100) * (this.scaleX || 1);
-    const height = (this.height || 100) * (this.scaleY || 1);
+  getClipPath(): fabric.Polygon {
+    const scaleX = this.scaleX || 1;
+    const scaleY = this.scaleY || 1;
     const center = this.getCenterPoint();
 
-    return new fabric.Rect({
+    // Scale the original points
+    const scaledPoints = this._originalPoints.map((p) => ({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
+    }));
+
+    return new fabric.Polygon(scaledPoints, {
       left: center.x,
       top: center.y,
-      width: width,
-      height: height,
-      rx: this.rx,
-      ry: this.ry,
       originX: "center",
       originY: "center",
       absolutePositioned: true,
@@ -131,7 +97,7 @@ export class ImageFrame extends fabric.Rect {
   }
 
   /**
-   * Update the stored previous position/scale (call this after modification is complete)
+   * Update the stored previous position/scale
    */
   updatePreviousTransform() {
     this._previousLeft = this.left || 0;
@@ -148,14 +114,16 @@ export class ImageFrame extends fabric.Rect {
       ...super.toObject(propertiesToInclude),
       id: this.id,
       linkedImageId: this.linkedImageId,
+      _originalPoints: this._originalPoints,
     };
   }
 
   /**
    * Deserialize from JSON
    */
-  static fromObject(object: any, callback?: (obj: ImageFrame) => void): ImageFrame {
-    const frame = new ImageFrame({
+  static fromObject(object: any, callback?: (obj: PolygonFrame) => void): PolygonFrame {
+    const points = object.points || object._originalPoints || [];
+    const frame = new PolygonFrame(points, {
       ...object,
       id: object.id,
       linkedImageId: object.linkedImageId,
@@ -168,4 +136,4 @@ export class ImageFrame extends fabric.Rect {
 }
 
 // Register with Fabric.js
-(fabric as any).ImageFrame = ImageFrame;
+(fabric as any).PolygonFrame = PolygonFrame;

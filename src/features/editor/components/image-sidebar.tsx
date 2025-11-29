@@ -22,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { ActiveTool, Editor } from "@/features/editor/types";
+import { isFrameType } from "@/features/editor/objects/image-frame";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
 
@@ -179,8 +180,8 @@ export const ImageSidebar = ({
     // Use fabric's native hit testing - this is what it uses for click detection
     const target = editor.canvas.findTarget(syntheticEvent, false);
 
-    // Return only if it's an imageFrame
-    if (target && target.type === "imageFrame") {
+    // Return only if it's a frame type (imageFrame, circleFrame, triangleFrame, polygonFrame)
+    if (target && isFrameType(target.type)) {
       return target;
     }
 

@@ -34,11 +34,12 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { isTextType } from "@/features/editor/utils";
+import { isFrameType } from "@/features/editor/objects/image-frame";
 import { FontSizeInput } from "@/features/editor/components/font-size-input";
-import { 
-  ActiveTool, 
-  Editor, 
-  FONT_SIZE, 
+import {
+  ActiveTool,
+  Editor,
+  FONT_SIZE,
   FONT_WEIGHT
 } from "@/features/editor/types";
 
@@ -113,7 +114,7 @@ export const Toolbar = ({
 
   const isText = isTextType(selectedObjectType);
   const isImage = selectedObjectType === "image";
-  const isFramedImage = selectedObjectType === "imageFrame" || selectedObjectType === "framedImage";
+  const isFramedImage = isFrameType(selectedObjectType) || selectedObjectType === "framedImage";
 
   const onChangeFontSize = (value: number) => {
     if (!selectedObject) {

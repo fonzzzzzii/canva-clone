@@ -1,6 +1,6 @@
 import { fabric } from "fabric";
 import { v4 as uuidv4 } from "uuid";
-import { ImageFrame } from "./image-frame";
+import { IFrame, isFrameType } from "./image-frame";
 
 interface FramedImageOptions extends fabric.IImageOptions {
   id?: string;
@@ -39,37 +39,52 @@ export class FramedImage extends fabric.Image {
   }
 
   /**
-   * Get the linked ImageFrame object from the canvas
+   * Get the linked frame object from the canvas (supports all frame types)
    */
-  getLinkedFrame(canvas: fabric.Canvas): ImageFrame | null {
+  getLinkedFrame(canvas: fabric.Canvas): IFrame | null {
     if (!this.linkedFrameId) return null;
 
     const objects = canvas.getObjects();
     for (const obj of objects) {
-      if (obj.type === "imageFrame" && (obj as ImageFrame).id === this.linkedFrameId) {
-        return obj as ImageFrame;
+      if (isFrameType(obj.type) && (obj as IFrame).id === this.linkedFrameId) {
+        return obj as IFrame;
       }
     }
     return null;
   }
 
   /**
-   * Apply clipping based on the frame's position and size
-   * Uses absolutePositioned so the clip stays at the frame's canvas position
+   * Apply clipping based on the frame's shape
+   * Uses the frame's getClipPath() method to get the appropriate clip shape
    */
-  applyFrameClip(frame: ImageFrame) {
-    const frameWidth = (frame.width || 0) * (frame.scaleX || 1);
-    const frameHeight = (frame.height || 0) * (frame.scaleY || 1);
+  applyFrameClip(frame: IFrame) {
+    // Check if frame has getClipPath method (proper frame class instance)
+    if (typeof frame.getClipPath === "function") {
+      this.clipPath = frame.getClipPath();
+    } else {
+      // Fallback for plain objects or legacy frames - create a basic rect clip
+      const frameWidth = ((frame as any).width || 100) * (frame.scaleX || 1);
+      const frameHeight = ((frame as any).height || 100) * (frame.scaleY || 1);
 
-    this.clipPath = new fabric.Rect({
-      left: frame.left,
-      top: frame.top,
-      width: frameWidth,
-      height: frameHeight,
-      originX: "center",
-      originY: "center",
-      absolutePositioned: true,
-    });
+      // Get center point if available, otherwise calculate from left/top
+      let centerX = frame.left || 0;
+      let centerY = frame.top || 0;
+      if (typeof (frame as any).getCenterPoint === "function") {
+        const center = (frame as any).getCenterPoint();
+        centerX = center.x;
+        centerY = center.y;
+      }
+
+      this.clipPath = new fabric.Rect({
+        left: centerX,
+        top: centerY,
+        width: frameWidth,
+        height: frameHeight,
+        originX: "center",
+        originY: "center",
+        absolutePositioned: true,
+      });
+    }
   }
 
   /**
