@@ -198,9 +198,10 @@ export const useClipboard = ({
                   let frameCenterX: number;
                   let frameCenterY: number;
                   if (frame.type === "circleFrame") {
-                    const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                    frameCenterX = absoluteLeft + radius;
-                    frameCenterY = absoluteTop + radius;
+                    const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                    const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                    frameCenterX = absoluteLeft + radiusX;
+                    frameCenterY = absoluteTop + radiusY;
                   } else {
                     const width = ((frame as any).width || 100) * effectiveScaleX;
                     const height = ((frame as any).height || 100) * effectiveScaleY;

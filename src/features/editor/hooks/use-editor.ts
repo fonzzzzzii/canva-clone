@@ -482,13 +482,14 @@ const buildEditor = ({
           const imgWidth = loadedImage.width || 1;
           const imgHeight = loadedImage.height || 1;
 
-          // Get frame dimensions - handle circles separately (use radius)
+          // Get frame dimensions - handle circles separately (use radius with respective scales for ellipse support)
           let frameWidth: number;
           let frameHeight: number;
           if (frame.type === "circleFrame") {
-            const radius = ((frame as any).radius || 100) * (frame.scaleX || 1);
-            frameWidth = radius * 2;
-            frameHeight = radius * 2;
+            const radiusX = ((frame as any).radius || 100) * (frame.scaleX || 1);
+            const radiusY = ((frame as any).radius || 100) * (frame.scaleY || 1);
+            frameWidth = radiusX * 2;
+            frameHeight = radiusY * 2;
           } else {
             frameWidth = ((frame as any).width || 100) * (frame.scaleX || 1);
             frameHeight = ((frame as any).height || 100) * (frame.scaleY || 1);
@@ -509,9 +510,10 @@ const buildEditor = ({
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
-            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
-            frameCenterX = (frame.left || 0) + radius;
-            frameCenterY = (frame.top || 0) + radius;
+            const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+            frameCenterX = (frame.left || 0) + radiusX;
+            frameCenterY = (frame.top || 0) + radiusY;
           } else {
             frameCenterX = (frame.left || 0) + frameWidth / 2;
             frameCenterY = (frame.top || 0) + frameHeight / 2;
@@ -3257,9 +3259,10 @@ export const useEditor = ({
         let frameCenterY: number;
 
         if (frame.type === "circleFrame") {
-          const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
-          frameCenterX = (frame.left || 0) + radius;
-          frameCenterY = (frame.top || 0) + radius;
+          const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+          const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+          frameCenterX = (frame.left || 0) + radiusX;
+          frameCenterY = (frame.top || 0) + radiusY;
         } else if (frame.type === "triangleFrame" || frame.type === "polygonFrame") {
           const width = ((frame as any).width || 100) * (frame.scaleX || 1);
           const height = ((frame as any).height || 100) * (frame.scaleY || 1);
@@ -3324,9 +3327,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -3398,9 +3402,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -3496,9 +3501,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -3586,9 +3592,10 @@ export const useEditor = ({
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
-            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
-            frameCenterX = (frame.left || 0) + radius;
-            frameCenterY = (frame.top || 0) + radius;
+            const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+            frameCenterX = (frame.left || 0) + radiusX;
+            frameCenterY = (frame.top || 0) + radiusY;
           } else {
             const width = ((frame as any).width || 100) * (frame.scaleX || 1);
             const height = ((frame as any).height || 100) * (frame.scaleY || 1);
@@ -3648,9 +3655,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -3782,9 +3790,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -3929,9 +3938,10 @@ export const useEditor = ({
               let frameCenterX: number;
               let frameCenterY: number;
               if (frame.type === "circleFrame") {
-                const radius = ((frame as any).radius || 200) * effectiveScaleX;
-                frameCenterX = absoluteLeft + radius;
-                frameCenterY = absoluteTop + radius;
+                const radiusX = ((frame as any).radius || 200) * effectiveScaleX;
+                const radiusY = ((frame as any).radius || 200) * effectiveScaleY;
+                frameCenterX = absoluteLeft + radiusX;
+                frameCenterY = absoluteTop + radiusY;
               } else {
                 const width = ((frame as any).width || 100) * effectiveScaleX;
                 const height = ((frame as any).height || 100) * effectiveScaleY;
@@ -4044,9 +4054,10 @@ export const useEditor = ({
           let frameCenterX: number;
           let frameCenterY: number;
           if (frame.type === "circleFrame") {
-            const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
-            frameCenterX = (frame.left || 0) + radius;
-            frameCenterY = (frame.top || 0) + radius;
+            const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+            const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+            frameCenterX = (frame.left || 0) + radiusX;
+            frameCenterY = (frame.top || 0) + radiusY;
           } else {
             const width = ((frame as any).width || 100) * (frame.scaleX || 1);
             const height = ((frame as any).height || 100) * (frame.scaleY || 1);

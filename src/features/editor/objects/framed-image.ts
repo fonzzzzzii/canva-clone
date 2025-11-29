@@ -140,9 +140,10 @@ export class FramedImage extends fabric.Image {
       let frameCenterX: number;
       let frameCenterY: number;
       if (frame.type === "circleFrame") {
-        const radius = ((frame as any).radius || 200) * (frame.scaleX || 1);
-        frameCenterX = (frame.left || 0) + radius;
-        frameCenterY = (frame.top || 0) + radius;
+        const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+        const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+        frameCenterX = (frame.left || 0) + radiusX;
+        frameCenterY = (frame.top || 0) + radiusY;
       } else {
         const width = ((frame as any).width || 100) * (frame.scaleX || 1);
         const height = ((frame as any).height || 100) * (frame.scaleY || 1);

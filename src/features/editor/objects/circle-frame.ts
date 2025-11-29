@@ -84,17 +84,23 @@ export class CircleFrame extends fabric.Circle {
 
   /**
    * Get a clipPath object matching this frame's shape
+   * Returns an ellipse when scaleX !== scaleY (stretched circle)
    */
-  getClipPath(): fabric.Circle {
-    const radius = (this.radius || 200) * (this.scaleX || 1);
-    // Calculate center manually to match syncFrameImage calculation
-    const centerX = (this.left || 0) + radius;
-    const centerY = (this.top || 0) + radius;
+  getClipPath(): fabric.Ellipse | fabric.Circle {
+    const baseRadius = this.radius || 200;
+    const radiusX = baseRadius * (this.scaleX || 1);
+    const radiusY = baseRadius * (this.scaleY || 1);
 
-    return new fabric.Circle({
+    // Calculate center using respective radii
+    const centerX = (this.left || 0) + radiusX;
+    const centerY = (this.top || 0) + radiusY;
+
+    // Use ellipse to handle stretched circles
+    return new fabric.Ellipse({
       left: centerX,
       top: centerY,
-      radius: radius,
+      rx: radiusX,
+      ry: radiusY,
       originX: "center",
       originY: "center",
       absolutePositioned: true,
