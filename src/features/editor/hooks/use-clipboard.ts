@@ -194,24 +194,49 @@ export const useClipboard = ({
                   const effectiveScaleX = (frame.scaleX || 1) * (clonedGroup.scaleX || 1);
                   const effectiveScaleY = (frame.scaleY || 1) * (clonedGroup.scaleY || 1);
 
+                  // Calculate frame CENTER (must match syncFrameImage calculation)
+                  let frameCenterX: number;
+                  let frameCenterY: number;
+                  if (frame.type === "circleFrame") {
+                    const radius = ((frame as any).radius || 200) * effectiveScaleX;
+                    frameCenterX = absoluteLeft + radius;
+                    frameCenterY = absoluteTop + radius;
+                  } else {
+                    const width = ((frame as any).width || 100) * effectiveScaleX;
+                    const height = ((frame as any).height || 100) * effectiveScaleY;
+                    frameCenterX = absoluteLeft + width / 2;
+                    frameCenterY = absoluteTop + height / 2;
+                  }
+
                   image.set({
-                    left: absoluteLeft + image.offsetX,
-                    top: absoluteTop + image.offsetY,
+                    left: frameCenterX + image.offsetX,
+                    top: frameCenterY + image.offsetY,
                     evented: false,
                     selectable: false,
                   });
 
-                  // Apply clip with effective scale
-                  const tempFrame = {
+                  // Temporarily set frame to absolute position for correct clipPath
+                  const savedLeft = frame.left;
+                  const savedTop = frame.top;
+                  const savedScaleX = frame.scaleX;
+                  const savedScaleY = frame.scaleY;
+
+                  (frame as any).set({
                     left: absoluteLeft,
                     top: absoluteTop,
-                    width: (frame as any).width,
-                    height: (frame as any).height,
                     scaleX: effectiveScaleX,
                     scaleY: effectiveScaleY,
-                  } as IFrame;
+                  });
 
-                  image.applyFrameClip(tempFrame);
+                  image.applyFrameClip(frame);
+
+                  // Restore original relative position
+                  (frame as any).set({
+                    left: savedLeft,
+                    top: savedTop,
+                    scaleX: savedScaleX,
+                    scaleY: savedScaleY,
+                  });
                 }
               });
 
