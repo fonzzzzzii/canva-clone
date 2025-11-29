@@ -25,7 +25,22 @@ export const useLoadState = ({
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!initialized.current && initialState?.current && canvas) {
+    if (!initialized.current && canvas) {
+      // Case 1: No saved state - just zoom to page 1
+      if (!initialState?.current) {
+        initialized.current = true;
+        // Small delay to ensure canvas is fully ready
+        setTimeout(() => {
+          if (zoomToPage) {
+            zoomToPage(1);
+          } else {
+            autoZoom();
+          }
+        }, 0);
+        return;
+      }
+
+      // Case 2: Has saved state - load it then zoom to page 1
       const data = JSON.parse(initialState.current);
 
       // Helper to find frame by ID, including inside groups (supports all frame types)
