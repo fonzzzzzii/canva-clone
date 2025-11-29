@@ -121,21 +121,38 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Use the frame's getClipPath method if available (proper frame class)
-                if (typeof frame.getClipPath === 'function') {
-                  framedImage.applyFrameClip(frame);
-                } else {
-                  // Fallback for plain objects
+                const frameObj = frame as unknown as fabric.Object;
+
+                // Check if frame is inside a group
+                if (frameObj.group) {
+                  // Frame is in a group - need to use absolute position for clip
                   const transform = getAbsoluteFrameTransform(frame);
-                  const tempFrame = {
+
+                  // Temporarily set frame to absolute position for correct clipPath
+                  const savedLeft = frame.left;
+                  const savedTop = frame.top;
+                  const savedScaleX = frame.scaleX;
+                  const savedScaleY = frame.scaleY;
+
+                  (frame as any).set({
                     left: transform.left,
                     top: transform.top,
-                    width: (frame as any).width || 100,
-                    height: (frame as any).height || 100,
                     scaleX: transform.scaleX,
                     scaleY: transform.scaleY,
-                  } as IFrame;
-                  framedImage.applyFrameClip(tempFrame);
+                  });
+
+                  framedImage.applyFrameClip(frame);
+
+                  // Restore original relative position
+                  (frame as any).set({
+                    left: savedLeft,
+                    top: savedTop,
+                    scaleX: savedScaleX,
+                    scaleY: savedScaleY,
+                  });
+                } else {
+                  // Frame is not in a group - use directly
+                  framedImage.applyFrameClip(frame);
                 }
                 canvas.requestRenderAll();
               }
@@ -175,21 +192,38 @@ export const useHistory = ({ canvas, saveCallback }: UseHistoryProps) => {
               const frame = findFrameById(linkedFrameId);
 
               if (frame) {
-                // Use the frame's getClipPath method if available (proper frame class)
-                if (typeof frame.getClipPath === 'function') {
-                  framedImage.applyFrameClip(frame);
-                } else {
-                  // Fallback for plain objects
+                const frameObj = frame as unknown as fabric.Object;
+
+                // Check if frame is inside a group
+                if (frameObj.group) {
+                  // Frame is in a group - need to use absolute position for clip
                   const transform = getAbsoluteFrameTransform(frame);
-                  const tempFrame = {
+
+                  // Temporarily set frame to absolute position for correct clipPath
+                  const savedLeft = frame.left;
+                  const savedTop = frame.top;
+                  const savedScaleX = frame.scaleX;
+                  const savedScaleY = frame.scaleY;
+
+                  (frame as any).set({
                     left: transform.left,
                     top: transform.top,
-                    width: (frame as any).width || 100,
-                    height: (frame as any).height || 100,
                     scaleX: transform.scaleX,
                     scaleY: transform.scaleY,
-                  } as IFrame;
-                  framedImage.applyFrameClip(tempFrame);
+                  });
+
+                  framedImage.applyFrameClip(frame);
+
+                  // Restore original relative position
+                  (frame as any).set({
+                    left: savedLeft,
+                    top: savedTop,
+                    scaleX: savedScaleX,
+                    scaleY: savedScaleY,
+                  });
+                } else {
+                  // Frame is not in a group - use directly
+                  framedImage.applyFrameClip(frame);
                 }
                 canvas.requestRenderAll();
               }
