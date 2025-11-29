@@ -253,7 +253,6 @@ const buildEditor = ({
   };
 
   const zoomToPage = (pageNumber: number) => {
-    console.log('[ZOOM_TO_PAGE] START', { pageNumber });
     const workspaces = getWorkspaces();
 
     // Find the workspace for this page
@@ -288,12 +287,6 @@ const buildEditor = ({
       vpt[5] = containerHeight / 2 - workspaceCenter.y * scale;
       canvas.setViewportTransform(vpt);
     }
-
-    console.log('[ZOOM_TO_PAGE] END', {
-      pageNumber,
-      zoom: scale.toFixed(4),
-      vpt: vpt ? `[${vpt[4].toFixed(1)}, ${vpt[5].toFixed(1)}]` : null,
-    });
 
     canvas.requestRenderAll();
   };

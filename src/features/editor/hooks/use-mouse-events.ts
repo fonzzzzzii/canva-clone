@@ -26,7 +26,6 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
 
       const delta = event.deltaY;
       let zoom = canvas.getZoom();
-      const vptBefore = canvas.viewportTransform ? [...canvas.viewportTransform] : null;
 
       // Calculate new zoom level
       // Negative delta = scroll up = zoom in
@@ -39,13 +38,6 @@ export const useMouseEvents = ({ canvas }: UseMouseEventsProps) => {
       // Zoom to cursor position
       const point = new fabric.Point(event.offsetX, event.offsetY);
       canvas.zoomToPoint(point, zoom);
-
-      const vptAfter = canvas.viewportTransform;
-      console.log('[WHEEL]', {
-        zoom: zoom.toFixed(4),
-        vptBefore: vptBefore ? `[${vptBefore[4].toFixed(1)}, ${vptBefore[5].toFixed(1)}]` : null,
-        vptAfter: vptAfter ? `[${vptAfter[4].toFixed(1)}, ${vptAfter[5].toFixed(1)}]` : null,
-      });
 
       canvas.requestRenderAll();
     };

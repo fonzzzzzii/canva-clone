@@ -42,6 +42,7 @@ interface SortablePageHandleProps {
   editor: Editor;
   onAddSpreadBefore: () => void;
   onAddSpreadAfter: () => void;
+  isVisible: boolean;
 }
 
 const SortablePageHandle = ({
@@ -51,6 +52,7 @@ const SortablePageHandle = ({
   editor,
   onAddSpreadBefore,
   onAddSpreadAfter,
+  isVisible,
 }: SortablePageHandleProps) => {
   const {
     attributes,
@@ -64,6 +66,9 @@ const SortablePageHandle = ({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    // Hide non-focused pages but keep in DOM for dnd-kit
+    opacity: isVisible ? 1 : 0,
+    pointerEvents: isVisible ? 'auto' : 'none',
   };
 
   return (
@@ -176,10 +181,6 @@ export const PageHandlesOverlay = ({
       const signature = `${vpt[4].toFixed(0)},${vpt[5].toFixed(0)},${zoom.toFixed(3)}`;
 
       if (signature !== lastSignature) {
-        console.log('[PAGE_HANDLES] Viewport changed', {
-          oldSig: lastSignature,
-          newSig: signature,
-        });
         lastSignature = signature;
         calculatePagePositions();
       }
@@ -261,6 +262,10 @@ export const PageHandlesOverlay = ({
   const visiblePositions = pagePositions.filter((pos) => pos.isVisible);
   const sortableIds = visiblePositions.map((pos) => `page-${pos.pageNumber}`);
 
+  // Get focused page number to show only its handle (unless dragging)
+  const focusedPageNumber = editor.getFocusedPageNumber();
+  const isDragging = activeId !== null;
+
   // Find the active page info for the drag overlay
   const activePage = activeId
     ? visiblePositions.find((pos) => `page-${pos.pageNumber}` === activeId)
@@ -285,6 +290,7 @@ export const PageHandlesOverlay = ({
               editor={editor}
               onAddSpreadBefore={() => handleAddSpreadBefore(pos.pageNumber)}
               onAddSpreadAfter={() => handleAddSpreadAfter(pos.pageNumber)}
+              isVisible={isDragging || pos.pageNumber === focusedPageNumber}
             />
           ))}
         </SortableContext>
