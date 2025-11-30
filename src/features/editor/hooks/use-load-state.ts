@@ -103,6 +103,34 @@ export const useLoadState = ({
               if (frame) {
                 const frameObj = frame as unknown as fabric.Object;
 
+                // Check if this is a newly created image from auto-layout
+                // (has _frameWidth/_frameHeight but needs proper scaling)
+                const anyFramedImage = framedImage as any;
+                if (
+                  anyFramedImage._frameWidth &&
+                  anyFramedImage._frameHeight &&
+                  framedImage.width &&
+                  framedImage.height
+                ) {
+                  // Scale image to fill the frame (cover mode)
+                  const scaleX = anyFramedImage._frameWidth / framedImage.width;
+                  const scaleY = anyFramedImage._frameHeight / framedImage.height;
+                  const coverScale = Math.max(scaleX, scaleY);
+
+                  framedImage.set({
+                    scaleX: coverScale,
+                    scaleY: coverScale,
+                  });
+
+                  // Store for double-click edit mode
+                  framedImage.customScaleX = coverScale;
+                  framedImage.customScaleY = coverScale;
+
+                  // Clear the temporary properties
+                  delete anyFramedImage._frameWidth;
+                  delete anyFramedImage._frameHeight;
+                }
+
                 // Check if frame is inside a group
                 if (frameObj.group) {
                   // Frame is in a group - need to use absolute position for clip

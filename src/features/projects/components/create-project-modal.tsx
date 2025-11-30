@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Grid, Sparkles, ArrowRight, ArrowLeft, X, GripVertical, Plus } from "lucide-react";
+import { Loader2, Grid, Sparkles, ArrowRight, ArrowLeft, X, GripVertical, Plus, BookOpen, Minimize2, LayoutGrid } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -23,7 +23,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { useCreateProjectModal } from "@/features/projects/store/use-create-project-modal";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
-import { generateCanvasJsonWithImages } from "@/features/editor/utils/generate-canvas-json";
+import { generateCanvasJsonWithImages, generateCanvasJsonWithAutoLayout } from "@/features/editor/utils/generate-canvas-json";
+import { generateAutoLayout, calculateMinimumPages, STYLE_CONFIG, AlbumStyle, ImageWithOrientation } from "@/features/editor/utils/auto-layout";
 import { UploadDropzone, UploadButton } from "@/lib/uploadthing";
 
 import {
@@ -49,6 +50,12 @@ import { cn } from "@/lib/utils";
 
 type LayoutType = "manual" | "auto" | null;
 
+// Pricing configuration (placeholder - can be updated later)
+const PRICING = {
+  baseCost: 20,
+  perPageCost: 2,
+};
+
 type SortBy = "date-asc" | "date-desc" | "title" | "custom";
 
 interface ImageMetadata {
@@ -57,6 +64,10 @@ interface ImageMetadata {
   originalName: string;
   size: number;
   id: string; // Unique ID for drag-and-drop
+  // Added for auto-layout orientation analysis
+  width?: number;
+  height?: number;
+  orientation?: "portrait" | "landscape" | "square";
 }
 
 interface SortableImageItemProps {
@@ -135,10 +146,21 @@ export const CreateProjectModal = () => {
   // Form state
   const [name, setName] = useState("Untitled project");
   const [uploadedImages, setUploadedImages] = useState<ImageMetadata[]>([]);
-  const [layoutType, setLayoutType] = useState<LayoutType>(null);
+  const [layoutType, setLayoutType] = useState<LayoutType>("auto"); // Default to auto layout
   const [pageCount, setPageCount] = useState(2); // Start with 2 (even number)
   const [pageCountInput, setPageCountInput] = useState("2"); // String value for controlled input
   const [sortBy, setSortBy] = useState<SortBy>("date-asc");
+
+  // Auto-layout specific state
+  const [albumStyle, setAlbumStyle] = useState<AlbumStyle>("classic");
+  const [minimumPages, setMinimumPages] = useState(2);
+  const [isAnalyzingImages, setIsAnalyzingImages] = useState(false);
+
+  // Calculate estimated price
+  const estimatedPrice = useMemo(
+    () => PRICING.baseCost + pageCount * PRICING.perPageCost,
+    [pageCount]
+  );
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -162,7 +184,7 @@ export const CreateProjectModal = () => {
     }
   };
 
-  // Calculate suggested page count based on images (always even)
+  // Calculate suggested page count based on images (always even) - for manual layout
   const getSuggestedPageCount = (imageCount: number): number => {
     if (imageCount === 0) return 2;
     // Suggest 4 images per page as baseline
@@ -171,14 +193,82 @@ export const CreateProjectModal = () => {
     return calculatedPages % 2 === 0 ? calculatedPages : calculatedPages + 1;
   };
 
-  // Update suggested page count when images change
+  // Analyze image dimensions to determine orientation
+  const analyzeImageDimensions = async (
+    images: ImageMetadata[]
+  ): Promise<ImageMetadata[]> => {
+    return Promise.all(
+      images.map(async (img) => {
+        // Skip if already analyzed
+        if (img.width && img.height && img.orientation) return img;
+
+        return new Promise<ImageMetadata>((resolve) => {
+          const image = new Image();
+          image.onload = () => {
+            const width = image.naturalWidth;
+            const height = image.naturalHeight;
+            const aspectRatio = width / height;
+
+            let orientation: "portrait" | "landscape" | "square";
+            if (aspectRatio > 1.15) orientation = "landscape";
+            else if (aspectRatio < 0.85) orientation = "portrait";
+            else orientation = "square";
+
+            resolve({ ...img, width, height, orientation });
+          };
+          image.onerror = () => {
+            // Default to square if we can't load the image
+            resolve({ ...img, width: 100, height: 100, orientation: "square" });
+          };
+          image.src = img.url;
+        });
+      })
+    );
+  };
+
+  // Calculate minimum pages based on style and image count (for auto layout)
   useEffect(() => {
-    if (uploadedImages.length > 0) {
+    if (layoutType === "auto") {
+      const min = calculateMinimumPages(uploadedImages.length, albumStyle);
+      setMinimumPages(min);
+      // Update page count if current value is below minimum
+      if (pageCount < min) {
+        setPageCount(min);
+        setPageCountInput(min.toString());
+      }
+    }
+  }, [albumStyle, uploadedImages.length, layoutType]);
+
+  // Analyze images when entering Step 3 (for auto layout orientation matching)
+  useEffect(() => {
+    if (step === 3 && uploadedImages.length > 0 && layoutType === "auto") {
+      // Check if any images need analysis
+      const needsAnalysis = uploadedImages.some(
+        (img) => !img.width || !img.height || !img.orientation
+      );
+
+      if (needsAnalysis) {
+        setIsAnalyzingImages(true);
+        analyzeImageDimensions(uploadedImages).then((analyzed) => {
+          setUploadedImages(analyzed);
+          setIsAnalyzingImages(false);
+        });
+      }
+    }
+  }, [step, layoutType]);
+
+  // Update suggested page count when images change (for manual layout)
+  useEffect(() => {
+    if (uploadedImages.length > 0 && layoutType === "manual") {
       const suggested = getSuggestedPageCount(uploadedImages.length);
       setPageCount(suggested);
       setPageCountInput(suggested.toString());
+    } else if (uploadedImages.length > 0 && layoutType === "auto") {
+      const min = calculateMinimumPages(uploadedImages.length, albumStyle);
+      setPageCount(min);
+      setPageCountInput(min.toString());
     }
-  }, [uploadedImages]);
+  }, [uploadedImages.length]);
 
   // Debounced validation for page count input
   useEffect(() => {
@@ -190,8 +280,10 @@ export const CreateProjectModal = () => {
         if (validValue % 2 !== 0) {
           validValue = validValue + 1;
         }
-        // Clamp between 2 and 100
-        validValue = Math.min(Math.max(2, validValue), 100);
+        // For auto layout, respect minimum pages
+        const minPages = layoutType === "auto" ? minimumPages : 2;
+        // Clamp between min and 100
+        validValue = Math.min(Math.max(minPages, validValue), 100);
 
         if (validValue !== value) {
           setPageCountInput(validValue.toString());
@@ -201,15 +293,18 @@ export const CreateProjectModal = () => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timer);
-  }, [pageCountInput]);
+  }, [pageCountInput, layoutType, minimumPages]);
 
   const handleClose = () => {
     setStep(1);
     setName("Untitled project");
     setUploadedImages([]);
-    setLayoutType(null);
+    setLayoutType("auto"); // Reset to default
     setPageCount(2);
     setPageCountInput("2");
+    setAlbumStyle("classic");
+    setMinimumPages(2);
+    setIsAnalyzingImages(false);
     onClose();
   };
 
@@ -243,15 +338,55 @@ export const CreateProjectModal = () => {
     );
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!layoutType) return;
 
-    const validPageCount = Math.min(Math.max(1, pageCount), 100);
+    const validPageCount = Math.min(Math.max(2, pageCount), 100);
 
-    const canvasJson =
-      uploadedImages.length > 0
-        ? generateCanvasJsonWithImages(uploadedImages, 2970, 2100, validPageCount)
-        : "";
+    let canvasJson = "";
+
+    if (uploadedImages.length > 0) {
+      if (layoutType === "auto") {
+        // Ensure images have dimension data for auto layout
+        let analyzedImages = uploadedImages;
+        const needsAnalysis = uploadedImages.some(
+          (img) => !img.width || !img.height || !img.orientation
+        );
+        if (needsAnalysis) {
+          setIsAnalyzingImages(true);
+          analyzedImages = await analyzeImageDimensions(uploadedImages);
+          setIsAnalyzingImages(false);
+        }
+
+        // Convert to ImageWithOrientation format for auto-layout algorithm
+        const imagesWithOrientation: ImageWithOrientation[] = analyzedImages
+          .filter((img) => img.width && img.height && img.orientation)
+          .map((img) => ({
+            url: img.url,
+            width: img.width!,
+            height: img.height!,
+            orientation: img.orientation!,
+          }));
+
+        // Generate auto layout
+        const layoutResult = generateAutoLayout(
+          imagesWithOrientation,
+          validPageCount,
+          albumStyle
+        );
+
+        // Generate canvas JSON with template-based layout
+        canvasJson = generateCanvasJsonWithAutoLayout(layoutResult, 2970, 2100);
+      } else {
+        // Manual layout - use existing grid-based generation
+        canvasJson = generateCanvasJsonWithImages(
+          uploadedImages,
+          2970,
+          2100,
+          validPageCount
+        );
+      }
+    }
 
     mutation.mutate(
       {
@@ -443,8 +578,26 @@ export const CreateProjectModal = () => {
 
         {/* Step 3: Choose Layout */}
         {step === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Layout Type Selection */}
             <div className="grid grid-cols-2 gap-4">
+              {/* Auto Layout - Primary (default) */}
+              <Card
+                className={cn(
+                  "cursor-pointer transition-all hover:border-purple-400",
+                  layoutType === "auto" && "border-purple-500 border-2"
+                )}
+                onClick={() => setLayoutType("auto")}
+              >
+                <CardContent className="flex flex-col items-center justify-center p-6 space-y-2">
+                  <Sparkles className="h-12 w-12 text-purple-500" />
+                  <h3 className="font-semibold">Auto Layout</h3>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Smart arrangement based on your photos
+                  </p>
+                </CardContent>
+              </Card>
+
               {/* Manual Layout */}
               <Card
                 className={cn(
@@ -457,33 +610,109 @@ export const CreateProjectModal = () => {
                   <Grid className="h-12 w-12 text-blue-500" />
                   <h3 className="font-semibold">Manual Layout</h3>
                   <p className="text-sm text-muted-foreground text-center">
-                    Choose the number of pages yourself
+                    Full control over page layouts
                   </p>
-                </CardContent>
-              </Card>
-
-              {/* Auto Layout */}
-              <Card
-                className={cn(
-                  "cursor-pointer transition-all hover:border-purple-400",
-                  layoutType === "auto" && "border-purple-500 border-2"
-                )}
-                onClick={() => setLayoutType("auto")}
-              >
-                <CardContent className="flex flex-col items-center justify-center p-6 space-y-2 relative">
-                  <Sparkles className="h-12 w-12 text-purple-500" />
-                  <h3 className="font-semibold">Auto Layout</h3>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Auto arrange photos
-                  </p>
-                  <span className="absolute top-2 right-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                    Coming Soon
-                  </span>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Manual Layout: Page Count Input */}
+            {/* Auto Layout Options */}
+            {layoutType === "auto" && (
+              <div className="space-y-4 p-4 bg-muted rounded-lg">
+                {/* Album Style Selector */}
+                <div className="space-y-2">
+                  <Label>Album Style</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      {
+                        style: "classic" as const,
+                        title: "Classic",
+                        desc: "2-3 photos/page",
+                        icon: BookOpen,
+                      },
+                      {
+                        style: "modern" as const,
+                        title: "Modern",
+                        desc: "1-2 photos/page",
+                        icon: Minimize2,
+                      },
+                      {
+                        style: "collage" as const,
+                        title: "Collage",
+                        desc: "3-6 photos/page",
+                        icon: LayoutGrid,
+                      },
+                    ].map(({ style, title, desc, icon: Icon }) => (
+                      <button
+                        key={style}
+                        type="button"
+                        className={cn(
+                          "p-3 rounded-lg border-2 transition-all text-left",
+                          albumStyle === style
+                            ? "border-purple-500 bg-purple-50"
+                            : "border-gray-200 bg-white hover:border-purple-300"
+                        )}
+                        onClick={() => setAlbumStyle(style)}
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <Icon
+                            className={cn(
+                              "h-6 w-6",
+                              albumStyle === style
+                                ? "text-purple-500"
+                                : "text-gray-500"
+                            )}
+                          />
+                          <span className="font-medium text-sm">{title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {desc}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Page Count with Price */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="autoPageCount">Number of Pages</Label>
+                    <span className="text-sm font-medium text-green-600">
+                      Est. ${estimatedPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="autoPageCount"
+                      type="number"
+                      min={minimumPages}
+                      step={2}
+                      value={pageCountInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "" || /^\d+$/.test(value)) {
+                          setPageCountInput(value);
+                        }
+                      }}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      (min {minimumPages} for {uploadedImages.length} photos)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Analyzing indicator */}
+                {isAnalyzingImages && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing photos...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manual Layout Options */}
             {layoutType === "manual" && (
               <div className="space-y-2 p-4 bg-muted rounded-lg">
                 <Label htmlFor="pageCount">Number of Pages (must be even)</Label>
@@ -585,11 +814,11 @@ export const CreateProjectModal = () => {
               <Button
                 type="button"
                 onClick={handleCreateProject}
-                disabled={!layoutType || mutation.isPending}
+                disabled={!layoutType || mutation.isPending || isAnalyzingImages}
               >
-                {mutation.isPending ? (
+                {mutation.isPending || isAnalyzingImages ? (
                   <>
-                    Creating...
+                    {isAnalyzingImages ? "Analyzing..." : "Creating..."}
                     <Loader2 className="size-4 ml-2 animate-spin" />
                   </>
                 ) : (

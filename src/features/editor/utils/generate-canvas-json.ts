@@ -1,3 +1,178 @@
+import { AutoLayoutResult } from "./auto-layout";
+import { v4 as uuidv4 } from "uuid";
+
+/**
+ * Generates fabric.js canvas JSON with template-based auto layout
+ * Creates pages with ImageFrames and FramedImages based on the layout result
+ */
+export const generateCanvasJsonWithAutoLayout = (
+  layoutResult: AutoLayoutResult,
+  pageWidth: number,
+  pageHeight: number
+): string => {
+  const objects: any[] = [];
+  const pageSpacing = 20;
+  const spreadSpacing = 100;
+
+  layoutResult.pages.forEach((pageLayout, pageIndex) => {
+    const pageNumber = pageLayout.pageNumber;
+    const spreadIndex = Math.floor(pageIndex / 2);
+    const isLeftPage = pageIndex % 2 === 0;
+
+    const spreadStartX =
+      spreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
+    const xPosition = isLeftPage
+      ? spreadStartX
+      : spreadStartX + pageWidth + pageSpacing;
+
+    // Create workspace/page rectangle
+    objects.push({
+      type: "rect",
+      version: "5.3.0",
+      originX: "left",
+      originY: "top",
+      left: xPosition,
+      top: 0,
+      width: pageWidth,
+      height: pageHeight,
+      fill: "white",
+      stroke: null,
+      strokeWidth: 0,
+      strokeDashArray: null,
+      strokeLineCap: "butt",
+      strokeDashOffset: 0,
+      strokeLineJoin: "miter",
+      strokeUniformScaling: false,
+      strokeMiterLimit: 4,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false,
+      opacity: 1,
+      shadow: {
+        color: "rgba(0,0,0,0.8)",
+        blur: 5,
+        offsetX: 0,
+        offsetY: 0,
+        affectStroke: false,
+        nonScaling: false,
+      },
+      visible: true,
+      backgroundColor: "",
+      fillRule: "nonzero",
+      paintFirst: "fill",
+      globalCompositeOperation: "source-over",
+      skewX: 0,
+      skewY: 0,
+      rx: 0,
+      ry: 0,
+      name: `clip-page-${pageNumber}`,
+      selectable: false,
+      hasControls: false,
+      evented: true,
+      pageNumber: pageNumber,
+      isPageWorkspace: true,
+    });
+
+    // Add frames and images from template
+    pageLayout.template.frames.forEach((frame, frameIdx) => {
+      const frameId = uuidv4();
+      const assignment = pageLayout.imageAssignments[frameIdx];
+      const hasImage = assignment?.imageUrl != null;
+
+      // Convert percentage position to absolute pixels
+      const frameLeft = xPosition + (frame.x / 100) * pageWidth;
+      const frameTop = (frame.y / 100) * pageHeight;
+      const frameWidth = (frame.width / 100) * pageWidth;
+      const frameHeight = (frame.height / 100) * pageHeight;
+
+      // Calculate frame center for image positioning
+      const frameCenterX = frameLeft + frameWidth / 2;
+      const frameCenterY = frameTop + frameHeight / 2;
+
+      const imageId = hasImage ? uuidv4() : null;
+
+      // Add FramedImage first (it renders behind the frame)
+      if (hasImage && imageId) {
+        objects.push({
+          type: "framedImage",
+          version: "5.3.0",
+          originX: "center",
+          originY: "center",
+          left: frameCenterX,
+          top: frameCenterY,
+          scaleX: 1,
+          scaleY: 1,
+          angle: 0,
+          flipX: false,
+          flipY: false,
+          opacity: 1,
+          visible: true,
+          backgroundColor: "",
+          fillRule: "nonzero",
+          paintFirst: "fill",
+          globalCompositeOperation: "source-over",
+          skewX: 0,
+          skewY: 0,
+          id: imageId,
+          linkedFrameId: frameId,
+          imageUrl: assignment.imageUrl,
+          src: assignment.imageUrl,
+          crossOrigin: "anonymous",
+          selectable: false,
+          evented: false,
+          // Store frame dimensions for proper scaling on load
+          _frameWidth: frameWidth,
+          _frameHeight: frameHeight,
+          // Initial offset (centered in frame)
+          offsetX: 0,
+          offsetY: 0,
+        });
+      }
+
+      // Add ImageFrame
+      objects.push({
+        type: "imageFrame",
+        version: "5.3.0",
+        originX: "left",
+        originY: "top",
+        left: frameLeft,
+        top: frameTop,
+        width: frameWidth,
+        height: frameHeight,
+        scaleX: 1,
+        scaleY: 1,
+        angle: 0,
+        flipX: false,
+        flipY: false,
+        opacity: 1,
+        visible: true,
+        backgroundColor: "",
+        fillRule: "nonzero",
+        paintFirst: "fill",
+        globalCompositeOperation: "source-over",
+        skewX: 0,
+        skewY: 0,
+        rx: 0,
+        ry: 0,
+        id: frameId,
+        linkedImageId: imageId,
+        // Placeholder styling for empty frames, transparent for frames with images
+        fill: hasImage ? "transparent" : "#f3f4f6",
+        stroke: hasImage ? null : "#d1d5db",
+        strokeWidth: hasImage ? 0 : 2,
+        strokeDashArray: hasImage ? null : [8, 4],
+      });
+    });
+  });
+
+  return JSON.stringify({
+    version: "5.3.0",
+    objects,
+  });
+};
+
 /**
  * Generates fabric.js canvas JSON with images positioned in a grid layout across multiple pages
  */
