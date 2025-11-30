@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Upload, X } from "lucide-react";
+import { Upload, X, RefreshCw } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -25,10 +25,12 @@ import { ActiveTool, Editor } from "@/features/editor/types";
 import { isFrameType } from "@/features/editor/objects/image-frame";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
+import type { AlbumStyle } from "@/features/editor/utils/auto-layout";
 
 import { cn } from "@/lib/utils";
 import { UploadButton } from "@/lib/uploadthing";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type SortBy = "date-asc" | "date-desc" | "title" | "custom";
 
@@ -130,6 +142,8 @@ export const ImageSidebar = ({
   const [sortBy, setSortBy] = useState<SortBy>("custom");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hoveredFrame, setHoveredFrame] = useState<any>(null);
+  const [showRedistributeDialog, setShowRedistributeDialog] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState<AlbumStyle>("modern");
   const sidebarRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -359,20 +373,30 @@ export const ImageSidebar = ({
           }}
         />
         {uploadedImages.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="custom">Custom</SelectItem>
-                <SelectItem value="date-asc">Date ↑</SelectItem>
-                <SelectItem value="date-desc">Date ↓</SelectItem>
-                <SelectItem value="title">Title</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="date-asc">Date ↑</SelectItem>
+                  <SelectItem value="date-desc">Date ↓</SelectItem>
+                  <SelectItem value="title">Title</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => setShowRedistributeDialog(true)}
+              variant="outline"
+              className="w-full"
+            >
+              <RefreshCw className="size-4 mr-2" />
+              Redistribute Images
+            </Button>
+          </>
         )}
       </div>
       <ScrollArea>
@@ -417,6 +441,66 @@ export const ImageSidebar = ({
         </div>
       </ScrollArea>
       <ToolSidebarClose onClick={onClose} />
+
+      <AlertDialog open={showRedistributeDialog} onOpenChange={setShowRedistributeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Redistribute Images</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will completely regenerate your album layout based on the current image order.
+              All manual edits will be lost. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Album Style</label>
+              <Select
+                value={selectedStyle}
+                onValueChange={(value) => setSelectedStyle(value as AlbumStyle)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="classic">
+                    <div>
+                      <div className="font-medium">Classic</div>
+                      <div className="text-xs text-muted-foreground">2-3 photos per page</div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="modern">
+                    <div>
+                      <div className="font-medium">Modern</div>
+                      <div className="text-xs text-muted-foreground">1-2 photos per page</div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="collage">
+                    <div>
+                      <div className="font-medium">Collage</div>
+                      <div className="text-xs text-muted-foreground">3-6 photos per page</div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (editor) {
+                  editor.redistributeImages(uploadedImages, selectedStyle);
+                }
+                setShowRedistributeDialog(false);
+              }}
+            >
+              Redistribute
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 };

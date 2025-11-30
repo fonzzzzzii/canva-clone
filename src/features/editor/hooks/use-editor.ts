@@ -43,6 +43,15 @@ import { useWindowEvents } from "@/features/editor/hooks/use-window-events";
 import { useLoadState } from "@/features/editor/hooks/use-load-state";
 import { useSnapping } from "@/features/editor/hooks/use-snapping";
 import { useMouseEvents } from "@/features/editor/hooks/use-mouse-events";
+import {
+  AlbumStyle,
+  ImageWithOrientation,
+  ImageOrientation,
+  calculateMinimumPages,
+  generateAutoLayout,
+} from "@/features/editor/utils/auto-layout";
+import { generateCanvasJsonWithAutoLayout } from "@/features/editor/utils/generate-canvas-json";
+import type { ImageMetadata } from "@/features/editor/components/image-sidebar";
 // Removed old FramedImage import - now using CroppableImage
 
 const buildEditor = ({
@@ -3817,6 +3826,135 @@ const buildEditor = ({
 
       canvas.requestRenderAll();
       save();
+    },
+
+    redistributeImages: (uploadedImages: ImageMetadata[], style: AlbumStyle) => {
+      if (uploadedImages.length === 0) {
+        return; // Nothing to redistribute
+      }
+
+      // Clear entire canvas
+      const allObjects = canvas.getObjects();
+      allObjects.forEach((obj) => canvas.remove(obj));
+
+      // Analyze image dimensions for orientation matching
+      const analyzeImageDimensions = async (
+        imgs: ImageMetadata[]
+      ): Promise<ImageWithOrientation[]> => {
+        return Promise.all(
+          imgs.map((img) => {
+            return new Promise<ImageWithOrientation>((resolve) => {
+              const image = new Image();
+              image.crossOrigin = "anonymous";
+              image.onload = () => {
+                const orientation: ImageOrientation =
+                  image.width / image.height > 1.15
+                    ? "landscape"
+                    : image.width / image.height < 0.85
+                    ? "portrait"
+                    : "square";
+                resolve({
+                  url: img.url,
+                  width: image.width,
+                  height: image.height,
+                  orientation,
+                });
+              };
+              image.onerror = () => {
+                resolve({
+                  url: img.url,
+                  width: 100,
+                  height: 100,
+                  orientation: "square",
+                });
+              };
+              image.src = img.url;
+            });
+          })
+        );
+      };
+
+      // Run async analysis and regenerate layout
+      analyzeImageDimensions(uploadedImages).then((imagesWithOrientation) => {
+        const minPages = calculateMinimumPages(imagesWithOrientation.length, style);
+        const layoutResult = generateAutoLayout(
+          imagesWithOrientation,
+          minPages,
+          style
+        );
+
+        const canvasJson = generateCanvasJsonWithAutoLayout(
+          layoutResult,
+          2970,
+          2100
+        );
+
+        // Load new layout
+        const data = JSON.parse(canvasJson);
+        const reviverFunction = (obj: any, fabricObj: fabric.Object) => {
+          if (fabricObj.type === "framedImage") {
+            const framedImage = fabricObj as FramedImage;
+            const linkedFrameId = framedImage.linkedFrameId;
+
+            if (linkedFrameId) {
+              setTimeout(() => {
+                const findFrameById = (frameId: string): IFrame | undefined => {
+                  for (const obj of canvas.getObjects()) {
+                    if (isFrameType(obj.type) && (obj as IFrame).id === frameId) {
+                      return obj as IFrame;
+                    }
+                    if (obj.type === "group") {
+                      const group = obj as fabric.Group;
+                      const foundInGroup = group
+                        .getObjects()
+                        .find(
+                          (o) => isFrameType(o.type) && (o as IFrame).id === frameId
+                        ) as IFrame | undefined;
+                      if (foundInGroup) return foundInGroup;
+                    }
+                  }
+                  return undefined;
+                };
+
+                const frame = findFrameById(linkedFrameId);
+                if (frame) {
+                  const anyFramedImage = framedImage as any;
+                  if (
+                    anyFramedImage._frameWidth &&
+                    anyFramedImage._frameHeight &&
+                    framedImage.width &&
+                    framedImage.height
+                  ) {
+                    const scaleX = anyFramedImage._frameWidth / framedImage.width;
+                    const scaleY = anyFramedImage._frameHeight / framedImage.height;
+                    const coverScale = Math.max(scaleX, scaleY);
+
+                    framedImage.set({
+                      scaleX: coverScale,
+                      scaleY: coverScale,
+                    });
+
+                    framedImage.customScaleX = coverScale;
+                    framedImage.customScaleY = coverScale;
+
+                    delete anyFramedImage._frameWidth;
+                    delete anyFramedImage._frameHeight;
+                  }
+
+                  framedImage.applyFrameClip(frame);
+                  canvas.requestRenderAll();
+                }
+              }, 0);
+            }
+          }
+        };
+
+        canvas.loadFromJSON(data, () => {
+          canvas.requestRenderAll();
+          save();
+          autoZoom();
+        }, reviverFunction);
+      });
     },
   };
 };

@@ -393,6 +393,7 @@ export const CreateProjectModal = () => {
         width: 2970,
         height: 2100,
         pageCount: validPageCount,
+        uploadedImages: JSON.stringify(uploadedImages),
       },
       {
         onSuccess: ({ data }) => {

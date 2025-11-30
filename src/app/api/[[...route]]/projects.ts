@@ -230,11 +230,12 @@ const app = new Hono()
         width: true,
         height: true,
         pageCount: true,
+        uploadedImages: true,
       }),
     ),
     async (c) => {
       const auth = c.get("authUser");
-      const { name, json, height, width, pageCount } = c.req.valid("json");
+      const { name, json, height, width, pageCount, uploadedImages } = c.req.valid("json");
 
       if (!auth.token?.id) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -248,6 +249,7 @@ const app = new Hono()
           width,
           height,
           pageCount: pageCount || 1,
+          uploadedImages,
           userId: auth.token.id,
           createdAt: new Date(),
           updatedAt: new Date(),
