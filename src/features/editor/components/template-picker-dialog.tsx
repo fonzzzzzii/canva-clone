@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface TemplatePickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (leftTemplate: PageTemplate, rightTemplate: PageTemplate) => void;
+  onConfirm: (leftTemplate: PageTemplate, rightTemplate: PageTemplate, keepImages?: boolean) => void;
   mode?: "spread" | "single-page";
 }
 
@@ -105,6 +106,7 @@ export const TemplatePickerDialog = ({
   const [rightTemplate, setRightTemplate] = useState<PageTemplate | null>(null);
   const [singleTemplate, setSingleTemplate] = useState<PageTemplate | null>(null);
   const [activeCategory, setActiveCategory] = useState("blank");
+  const [keepImages, setKeepImages] = useState(true);
 
   const handleTemplateSelect = useCallback(
     (template: PageTemplate) => {
@@ -134,10 +136,11 @@ export const TemplatePickerDialog = ({
 
   const handleConfirm = useCallback(() => {
     if (mode === "single-page" && singleTemplate) {
-      onConfirm(singleTemplate, singleTemplate);
+      onConfirm(singleTemplate, singleTemplate, keepImages);
       // Reset state
       setSingleTemplate(null);
       setActiveCategory("blank");
+      setKeepImages(true);
     } else if (leftTemplate && rightTemplate) {
       onConfirm(leftTemplate, rightTemplate);
       // Reset state
@@ -146,7 +149,7 @@ export const TemplatePickerDialog = ({
       setRightTemplate(null);
       setActiveCategory("blank");
     }
-  }, [mode, singleTemplate, leftTemplate, rightTemplate, onConfirm]);
+  }, [mode, singleTemplate, leftTemplate, rightTemplate, keepImages, onConfirm]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -157,6 +160,7 @@ export const TemplatePickerDialog = ({
         setRightTemplate(null);
         setSingleTemplate(null);
         setActiveCategory("blank");
+        setKeepImages(true);
       }
       onOpenChange(open);
     },
@@ -374,32 +378,45 @@ export const TemplatePickerDialog = ({
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handleOpenChange(false)}>
-                Cancel
-              </Button>
-              {mode === "single-page" ? (
-                <Button
-                  onClick={handleConfirm}
-                  disabled={!singleTemplate}
-                >
-                  Clear & Apply Template
-                </Button>
-              ) : step === "left" ? (
-                <Button
-                  onClick={handleNext}
-                  disabled={!leftTemplate}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleConfirm}
-                  disabled={!rightTemplate}
-                >
-                  Add Spread
-                </Button>
+            <div className="flex items-center gap-4">
+              {mode === "single-page" && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch
+                    checked={keepImages}
+                    onCheckedChange={setKeepImages}
+                  />
+                  <span className="text-sm">
+                    Keep existing images
+                  </span>
+                </label>
               )}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                  Cancel
+                </Button>
+                {mode === "single-page" ? (
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={!singleTemplate}
+                  >
+                    {keepImages ? "Apply Template" : "Clear & Apply Template"}
+                  </Button>
+                ) : step === "left" ? (
+                  <Button
+                    onClick={handleNext}
+                    disabled={!leftTemplate}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={!rightTemplate}
+                  >
+                    Add Spread
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

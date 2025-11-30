@@ -292,7 +292,11 @@ export const PageHandlesOverlay = ({
     setTemplateDialogOpen(true);
   };
 
-  const handleTemplatesSelected = (leftTemplate: PageTemplate, rightTemplate: PageTemplate) => {
+  const handleTemplatesSelected = (
+    leftTemplate: PageTemplate,
+    rightTemplate: PageTemplate,
+    keepImages?: boolean
+  ) => {
     if (changeTemplatePageNumber !== null) {
       // Single-page mode: apply template directly (no confirmation dialog)
       // This avoids the Radix UI pointer-events bug that occurs when chaining dialogs
@@ -328,15 +332,49 @@ export const PageHandlesOverlay = ({
           );
         });
 
+        // Collect images to preserve if keepImages is true
+        const imagesToKeep: Array<{ imageUrl: string }> = [];
+        if (keepImages) {
+          framesToRemove.forEach((frame) => {
+            const linkedImage = (frame as IFrame).getLinkedImage(editor.canvas);
+            if (linkedImage && (linkedImage as any).imageUrl) {
+              imagesToKeep.push({ imageUrl: (linkedImage as any).imageUrl });
+            }
+          });
+        }
+
         // Remove frames and their linked images in batch
         editor.canvas.remove(...framesToRemove.map((frame) => {
           const linkedImage = (frame as IFrame).getLinkedImage(editor.canvas);
           return linkedImage ? [linkedImage, frame] : [frame];
         }).flat());
+
+        // Apply new template
+        editor.applyTemplateToPage(changeTemplatePageNumber, leftTemplate);
+
+        // Re-add images to new frames if keepImages is true
+        if (keepImages && imagesToKeep.length > 0) {
+          // Get newly created frames on this page
+          const newWsBounds = workspace.getBoundingRect();
+          const newFrames = editor.canvas.getObjects().filter((obj) => {
+            if (!isFrameType(obj.type)) return false;
+            const frameBounds = obj.getBoundingRect();
+            return (
+              frameBounds.left >= newWsBounds.left &&
+              frameBounds.left < newWsBounds.left + newWsBounds.width &&
+              frameBounds.top >= newWsBounds.top &&
+              frameBounds.top < newWsBounds.top + newWsBounds.height
+            );
+          }) as IFrame[];
+
+          // Match images to frames (in order, up to available frames)
+          const framesToFill = Math.min(imagesToKeep.length, newFrames.length);
+          for (let i = 0; i < framesToFill; i++) {
+            editor.replaceFrameImage(newFrames[i], imagesToKeep[i].imageUrl);
+          }
+        }
       }
 
-      // Apply new template
-      editor.applyTemplateToPage(changeTemplatePageNumber, leftTemplate);
       editor.canvas.renderAll();
 
       // Reset state
