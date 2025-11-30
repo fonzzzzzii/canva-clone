@@ -107,7 +107,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     category: "double",
     frames: [
       { x: PADDING, y: PADDING, width: 60, height: INNER_HEIGHT },
-      { x: 70, y: 25, width: 25, height: 50 },
+      { x: 70, y: PADDING, width: 25, height: INNER_HEIGHT },
     ],
   },
   {
@@ -115,7 +115,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     name: "Right Large",
     category: "double",
     frames: [
-      { x: PADDING, y: 25, width: 25, height: 50 },
+      { x: PADDING, y: PADDING, width: 25, height: INNER_HEIGHT },
       { x: 35, y: PADDING, width: 60, height: INNER_HEIGHT },
     ],
   },

@@ -231,11 +231,9 @@ export const CreateProjectModal = () => {
     if (layoutType === "auto") {
       const min = calculateMinimumPages(uploadedImages.length, albumStyle);
       setMinimumPages(min);
-      // Update page count if current value is below minimum
-      if (pageCount < min) {
-        setPageCount(min);
-        setPageCountInput(min.toString());
-      }
+      // Always update page count to new minimum when style changes
+      setPageCount(min);
+      setPageCountInput(min.toString());
     }
   }, [albumStyle, uploadedImages.length, layoutType]);
 

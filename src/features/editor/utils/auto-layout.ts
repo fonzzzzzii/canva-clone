@@ -169,11 +169,9 @@ const selectBestTemplate = (
     );
   }
 
-  // If no more images, prefer blank template
+  // If no more images, still return a template with frames for drag-drop
   if (remainingImages.length === 0) {
-    return (
-      PAGE_TEMPLATES.find((t) => t.id === "blank") || eligibleTemplates[0]
-    );
+    return eligibleTemplates[0];
   }
 
   // Score all eligible templates
