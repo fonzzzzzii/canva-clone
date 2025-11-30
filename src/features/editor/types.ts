@@ -23,6 +23,12 @@ export const JSON_KEYS = [
   "imageOffsetY",
   "fitMode",
   "locked",
+  "customScaleX",
+  "customScaleY",
+  "scaleX",
+  "scaleY",
+  "left",
+  "top",
 ];
 
 export const filters = [

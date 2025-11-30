@@ -422,15 +422,14 @@ export const ImageSidebar = ({
                 items={uploadedImages.map((img) => img.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="columns-2 gap-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   {uploadedImages.map((image) => (
-                    <div key={image.id} className="break-inside-avoid">
-                      <SortableImageItem
-                        image={image}
-                        onRemove={handleDelete}
-                        isDragging={activeId === image.id}
-                      />
-                    </div>
+                    <SortableImageItem
+                      key={image.id}
+                      image={image}
+                      onRemove={handleDelete}
+                      isDragging={activeId === image.id}
+                    />
                   ))}
                 </div>
               </SortableContext>

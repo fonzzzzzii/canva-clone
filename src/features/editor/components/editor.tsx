@@ -53,11 +53,23 @@ export const Editor = ({ initialData }: EditorProps) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSave = useCallback(
     debounce(
-      (values: { 
+      (values: {
         json: string,
         height: number,
         width: number,
       }) => {
+        const parsed = JSON.parse(values.json);
+        console.log('[SAVE] Saving canvas with framedImages:',
+          parsed.objects?.filter((obj: any) => obj.type === 'framedImage').map((obj: any) => ({
+            imageUrl: obj.imageUrl?.substring(0, 50),
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            customScaleX: obj.customScaleX,
+            customScaleY: obj.customScaleY,
+            left: obj.left,
+            top: obj.top,
+          }))
+        );
         mutate(values);
     },
     500

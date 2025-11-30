@@ -106,27 +106,52 @@ export const useLoadState = ({
                 // Check if this is a newly created image from auto-layout
                 // (has _frameWidth/_frameHeight but needs proper scaling)
                 const anyFramedImage = framedImage as any;
+
+                console.log('[REVIVER] Processing framedImage:', {
+                  imageUrl: framedImage.imageUrl,
+                  hasFrameWidth: !!anyFramedImage._frameWidth,
+                  hasFrameHeight: !!anyFramedImage._frameHeight,
+                  currentScaleX: framedImage.scaleX,
+                  currentScaleY: framedImage.scaleY,
+                  customScaleX: framedImage.customScaleX,
+                  customScaleY: framedImage.customScaleY,
+                  width: framedImage.width,
+                  height: framedImage.height,
+                });
+
                 if (
                   anyFramedImage._frameWidth &&
                   anyFramedImage._frameHeight &&
                   framedImage.width &&
                   framedImage.height
                 ) {
-                  // Scale image to fill the frame (cover mode)
-                  const scaleX = anyFramedImage._frameWidth / framedImage.width;
-                  const scaleY = anyFramedImage._frameHeight / framedImage.height;
-                  const coverScale = Math.max(scaleX, scaleY);
+                  // Only recalculate scale if no saved scale exists (first load)
+                  // If customScaleX exists, user has already positioned the image
+                  if (!framedImage.customScaleX && !framedImage.customScaleY) {
+                    console.log('[REVIVER] No saved customScale - calculating cover scale');
+                    // Scale image to fill the frame (cover mode)
+                    const scaleX = anyFramedImage._frameWidth / framedImage.width;
+                    const scaleY = anyFramedImage._frameHeight / framedImage.height;
+                    const coverScale = Math.max(scaleX, scaleY);
 
-                  framedImage.set({
-                    scaleX: coverScale,
-                    scaleY: coverScale,
-                  });
+                    console.log('[REVIVER] Calculated coverScale:', coverScale);
 
-                  // Store for double-click edit mode
-                  framedImage.customScaleX = coverScale;
-                  framedImage.customScaleY = coverScale;
+                    framedImage.set({
+                      scaleX: coverScale,
+                      scaleY: coverScale,
+                    });
 
-                  // Clear the temporary properties
+                    // Store for double-click edit mode
+                    framedImage.customScaleX = coverScale;
+                    framedImage.customScaleY = coverScale;
+                  } else {
+                    console.log('[REVIVER] Saved customScale exists - keeping current scale:', {
+                      customScaleX: framedImage.customScaleX,
+                      customScaleY: framedImage.customScaleY,
+                    });
+                  }
+
+                  // Always clear the temporary properties
                   delete anyFramedImage._frameWidth;
                   delete anyFramedImage._frameHeight;
                 }

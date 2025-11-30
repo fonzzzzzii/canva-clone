@@ -3951,7 +3951,25 @@ const buildEditor = ({
 
         canvas.loadFromJSON(data, () => {
           canvas.requestRenderAll();
-          save();
+
+          // Log framedImages after redistribution (after reviver completes)
+          setTimeout(() => {
+            const framedImages = canvas.getObjects().filter(obj => obj.type === 'framedImage');
+            console.log('[REDISTRIBUTE] After redistribution, framedImages:',
+              framedImages.map((obj: any) => ({
+                imageUrl: obj.imageUrl?.substring(0, 50),
+                scaleX: obj.scaleX,
+                scaleY: obj.scaleY,
+                customScaleX: obj.customScaleX,
+                customScaleY: obj.customScaleY,
+                left: obj.left,
+                top: obj.top,
+              }))
+            );
+
+            save();
+          }, 100); // Wait for reviver setTimeout to complete
+
           // Don't zoom or pan - maintain current view
         }, reviverFunction);
       });
