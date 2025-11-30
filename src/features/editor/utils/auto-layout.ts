@@ -49,7 +49,7 @@ export const STYLE_CONFIG: Record<
     categories: ["single", "double"],
     minFrames: 1,
     maxFrames: 2,
-    avgPerPage: 1.5,
+    avgPerPage: 1.2, // Conservative estimate accounting for single-frame template preference
   },
   collage: {
     categories: ["quad", "grid", "decorative"],
@@ -71,6 +71,7 @@ export const getFrameOrientation = (frame: FramePosition): FrameOrientation => {
 
 /**
  * Calculate the minimum number of pages needed for a given image count and style
+ * Simulates the template selection algorithm to get an accurate count
  * Always returns an even number (for spreads)
  */
 export const calculateMinimumPages = (
@@ -79,12 +80,45 @@ export const calculateMinimumPages = (
 ): number => {
   if (imageCount === 0) return 2;
 
-  const config = STYLE_CONFIG[style];
-  const calculatedPages = Math.ceil(imageCount / config.avgPerPage);
+  // Simulate template selection to get accurate page count
+  const eligibleTemplates = getEligibleTemplates(style);
+  if (eligibleTemplates.length === 0) return 2;
+
+  let pagesNeeded = 0;
+  let imagesPlaced = 0;
+  const usedTemplateIds = new Set<string>();
+
+  // Simulate the layout algorithm
+  while (imagesPlaced < imageCount) {
+    const remainingImages = imageCount - imagesPlaced;
+
+    // Use avgPerPage to estimate which template would be selected
+    const config = STYLE_CONFIG[style];
+    const targetFrames = Math.min(remainingImages, config.maxFrames);
+
+    // Find template with frame count closest to target
+    let bestTemplate = eligibleTemplates[0];
+    let minDiff = Math.abs(bestTemplate.frames.length - targetFrames);
+
+    for (const template of eligibleTemplates) {
+      const diff = Math.abs(template.frames.length - targetFrames);
+      if (diff < minDiff && !usedTemplateIds.has(template.id)) {
+        bestTemplate = template;
+        minDiff = diff;
+      }
+    }
+
+    usedTemplateIds.add(bestTemplate.id);
+    if (usedTemplateIds.size > 10) {
+      usedTemplateIds.clear();
+    }
+
+    imagesPlaced += bestTemplate.frames.length;
+    pagesNeeded++;
+  }
 
   // Ensure even number (for spreads) and minimum of 2
-  const evenPages =
-    calculatedPages % 2 === 0 ? calculatedPages : calculatedPages + 1;
+  const evenPages = pagesNeeded % 2 === 0 ? pagesNeeded : pagesNeeded + 1;
   return Math.max(2, evenPages);
 };
 
@@ -235,6 +269,32 @@ export const generateAutoLayout = (
 
   for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
     const remainingImages = imagesCopy.slice(imageIndex);
+
+    // Check if we should stop creating pages:
+    // - All images are placed (imageIndex >= imagesCopy.length)
+    // - We've completed a spread (pageNum is even, i.e., right page of spread)
+    // This prevents creating completely empty spreads
+    if (imageIndex >= imagesCopy.length && pageNum > 1 && (pageNum - 1) % 2 === 1) {
+      // We just finished an odd page (left) with no more images
+      // Complete this spread by adding one more page, then stop
+      const template = selectBestTemplate([], style, usedTemplateIds);
+      const imageAssignments = template.frames.map((_, idx) => ({
+        frameIndex: idx,
+        imageUrl: null,
+      }));
+
+      pages.push({
+        pageNumber: pageNum,
+        template,
+        imageAssignments,
+      });
+
+      break; // Stop after completing this spread
+    } else if (imageIndex >= imagesCopy.length && pageNum > 1 && (pageNum - 1) % 2 === 0) {
+      // We just finished an even page (right) with no more images
+      // This spread is complete, stop here
+      break;
+    }
 
     // Select the best template for remaining images
     const template = selectBestTemplate(remainingImages, style, usedTemplateIds);

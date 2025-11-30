@@ -3778,15 +3778,13 @@ const buildEditor = ({
       canvas.requestRenderAll();
       save();
 
-      // Navigate to a valid page
+      // Navigate to a valid page (update focus but maintain current view)
       const newFocusedPage = Math.min(focusedPageNumber, remainingWorkspaces.length);
       if (newFocusedPage !== focusedPageNumber) {
         setFocusedPageNumber(newFocusedPage);
       }
       updatePageFocusVisuals();
-      if (remainingWorkspaces.length > 0) {
-        zoomToPage(newFocusedPage);
-      }
+      // Don't zoom to page - maintain current view
     },
 
     applyTemplateToPage: (pageNumber: number, template: PageTemplate) => {
