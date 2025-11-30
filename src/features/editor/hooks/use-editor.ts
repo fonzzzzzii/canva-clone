@@ -3952,7 +3952,7 @@ const buildEditor = ({
         canvas.loadFromJSON(data, () => {
           canvas.requestRenderAll();
           save();
-          autoZoom();
+          // Don't zoom or pan - maintain current view
         }, reviverFunction);
       });
     },

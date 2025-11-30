@@ -1,6 +1,7 @@
 import { fabric } from "fabric";
 import { ITextboxOptions } from "fabric/fabric-impl";
 import * as material from "material-colors";
+import type { AlbumStyle } from "@/features/editor/utils/auto-layout";
 
 export const JSON_KEYS = [
   "name",
@@ -365,7 +366,7 @@ export interface Editor {
   addSpreadAfter: (spreadIndex: number, leftTemplate: PageTemplate, rightTemplate: PageTemplate) => void;
   deleteSpread: (spreadIndex: number) => void;
   applyTemplateToPage: (pageNumber: number, template: PageTemplate) => void;
-  redistributeImages: (uploadedImages: any[], style: string) => void;
+  redistributeImages: (uploadedImages: any[], style: AlbumStyle) => void;
   // Page reordering
   movePage: (fromPageNumber: number, toPageNumber: number) => void;
   moveSpread: (fromSpreadIndex: number, toSpreadIndex: number) => void;

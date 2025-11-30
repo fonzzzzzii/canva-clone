@@ -25,6 +25,7 @@ import { ActiveTool, Editor } from "@/features/editor/types";
 import { isFrameType } from "@/features/editor/objects/image-frame";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
+import { StylePreview } from "@/features/editor/components/style-preview";
 import type { AlbumStyle } from "@/features/editor/utils/auto-layout";
 
 import { cn } from "@/lib/utils";
@@ -464,21 +465,30 @@ export const ImageSidebar = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="classic">
-                    <div>
-                      <div className="font-medium">Classic</div>
-                      <div className="text-xs text-muted-foreground">2-3 photos per page</div>
+                    <div className="flex items-center gap-3">
+                      <StylePreview style="classic" size="sm" className="flex-shrink-0" />
+                      <div>
+                        <div className="font-medium">Classic</div>
+                        <div className="text-xs text-muted-foreground">2-3 photos per page</div>
+                      </div>
                     </div>
                   </SelectItem>
                   <SelectItem value="modern">
-                    <div>
-                      <div className="font-medium">Modern</div>
-                      <div className="text-xs text-muted-foreground">1-2 photos per page</div>
+                    <div className="flex items-center gap-3">
+                      <StylePreview style="modern" size="sm" className="flex-shrink-0" />
+                      <div>
+                        <div className="font-medium">Modern</div>
+                        <div className="text-xs text-muted-foreground">1-2 photos per page</div>
+                      </div>
                     </div>
                   </SelectItem>
                   <SelectItem value="collage">
-                    <div>
-                      <div className="font-medium">Collage</div>
-                      <div className="text-xs text-muted-foreground">3-6 photos per page</div>
+                    <div className="flex items-center gap-3">
+                      <StylePreview style="collage" size="sm" className="flex-shrink-0" />
+                      <div>
+                        <div className="font-medium">Collage</div>
+                        <div className="text-xs text-muted-foreground">3-6 photos per page</div>
+                      </div>
                     </div>
                   </SelectItem>
                 </SelectContent>

@@ -25,6 +25,7 @@ import { useCreateProjectModal } from "@/features/projects/store/use-create-proj
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { generateCanvasJsonWithImages, generateCanvasJsonWithAutoLayout } from "@/features/editor/utils/generate-canvas-json";
 import { generateAutoLayout, calculateMinimumPages, STYLE_CONFIG, AlbumStyle, ImageWithOrientation } from "@/features/editor/utils/auto-layout";
+import { StylePreview } from "@/features/editor/components/style-preview";
 import { UploadDropzone, UploadButton } from "@/lib/uploadthing";
 
 import {
@@ -653,19 +654,14 @@ export const CreateProjectModal = () => {
                         )}
                         onClick={() => setAlbumStyle(style)}
                       >
-                        <div className="flex flex-col items-center gap-1">
-                          <Icon
-                            className={cn(
-                              "h-6 w-6",
-                              albumStyle === style
-                                ? "text-purple-500"
-                                : "text-gray-500"
-                            )}
-                          />
-                          <span className="font-medium text-sm">{title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {desc}
-                          </span>
+                        <div className="flex flex-col items-center gap-2">
+                          <StylePreview style={style} className="flex-shrink-0" />
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-medium text-sm">{title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {desc}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     ))}
