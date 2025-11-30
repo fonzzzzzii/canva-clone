@@ -103,11 +103,18 @@ export class FramedImage extends fabric.Image {
 
     // Add visual indicator that we're in edit mode
     (this as any).set({
-      borderColor: "#06b6d4",  // Bright cyan for better visibility
-      cornerColor: "#06b6d4",
+      borderColor: "#ffffff",  // White border for visibility on dark backgrounds
+      cornerColor: "#ffffff",
       cornerStyle: "circle",
       transparentCorners: false,
       cornerSize: 12,
+      // Add shadow for dark outline effect (visible on light backgrounds)
+      shadow: new fabric.Shadow({
+        color: "rgba(0,0,0,0.9)",  // Stronger opacity for better visibility
+        blur: 4,                    // Wider blur for more prominent outline
+        offsetX: 0,
+        offsetY: 0,
+      }),
     });
 
     // Make the frame non-selectable
@@ -118,9 +125,19 @@ export class FramedImage extends fabric.Image {
 
       // Show frame border in edit mode
       frame.set({
-        stroke: "#06b6d4",  // Match image border color
-        strokeWidth: 4,     // Thicker for better visibility
-        strokeDashArray: [5, 5],
+        stroke: "#ffffff",           // White stroke for visibility on dark backgrounds
+        strokeWidth: 4,              // Thicker for better visibility
+        strokeDashArray: [10, 5],    // Longer dashes for better visibility
+        strokeLineCap: "round",      // Smoother corners
+        strokeLineJoin: "round",
+        paintFirst: "stroke",        // Render stroke before fill
+        // Add shadow for dark outline effect (visible on light backgrounds)
+        shadow: new fabric.Shadow({
+          color: "rgba(0,0,0,0.9)",  // Stronger opacity for better visibility
+          blur: 4,                    // Wider blur for more prominent outline
+          offsetX: 0,
+          offsetY: 0,
+        }),
       });
     }
 
@@ -172,6 +189,7 @@ export class FramedImage extends fabric.Image {
         stroke: undefined,
         strokeWidth: 0,
         strokeDashArray: undefined,
+        shadow: undefined,           // Remove shadow from frame
       });
 
       frame.setCoords();
@@ -181,6 +199,7 @@ export class FramedImage extends fabric.Image {
     (this as any).set({
       borderColor: undefined,
       cornerColor: undefined,
+      shadow: undefined,           // Remove shadow when exiting edit mode
     });
 
     this.setCoords();
