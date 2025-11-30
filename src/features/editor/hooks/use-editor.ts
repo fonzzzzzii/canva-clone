@@ -3742,7 +3742,7 @@ const buildEditor = ({
         }
       });
 
-      // 4. Reposition remaining pages
+      // 4. Reposition remaining pages and move their objects
       remainingWorkspaces.forEach((workspace: any) => {
         if (!workspace.pageNumber) return;
         const pageNum = workspace.pageNumber;
@@ -3752,36 +3752,57 @@ const buildEditor = ({
         const spreadStartX = newSpreadIndex * (2 * pageWidth + pageSpacing + spreadSpacing);
         const xPosition = isLeftPage ? spreadStartX : spreadStartX + pageWidth + pageSpacing;
 
-        const deltaX = xPosition - (workspace.left || 0);
-        workspace.set({ left: xPosition });
-        workspace.setCoords();
+        const oldLeft = workspace.left || 0;
+        const deltaX = xPosition - oldLeft;
 
-        // Move objects on this page
-        allObjects.forEach((obj: any) => {
-          if (objectsToRemove.includes(obj)) return;
-          if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
-          if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+        // Only move if there's a position change
+        if (Math.abs(deltaX) > 0.1) {
+          workspace.set({ left: xPosition });
+          workspace.setCoords();
 
-          const objCenter = obj.getCenterPoint();
-          const oldPageLeft = workspace.left || 0;
+          // Move all objects on this page by the same deltaX
+          const pageTop = workspace.top || 0;
+          const pageW = workspace.width || 0;
+          const pageH = workspace.height || 0;
 
-          // Check if object was on the old page position
-          // We need to check against the position before we moved the workspace
-          // This is complex, so we'll move objects with their pages
-        });
-      });
+          allObjects.forEach((obj: any) => {
+            if (objectsToRemove.includes(obj)) return;
+            if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
+            if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
+            if (obj.isPageWorkspace) return;
 
-      // 5. Move objects with their pages (simplified approach)
-      // Re-scan and move objects based on which page they're nearest to
-      const updatedWorkspaces = getWorkspaces();
-      canvas.getObjects().forEach((obj: any) => {
-        if (objectsToRemove.includes(obj)) return;
-        if (obj.name?.startsWith("clip-page-") || obj.name === "clip") return;
-        if (obj.type === "line" && obj.name?.startsWith("snap-line")) return;
-        if (obj.isPageWorkspace) return;
+            // Check if object is on this page (use old page position)
+            const objCenter = obj.getCenterPoint();
+            if (
+              objCenter.x >= oldLeft &&
+              objCenter.x <= oldLeft + pageW &&
+              objCenter.y >= pageTop &&
+              objCenter.y <= pageTop + pageH
+            ) {
+              // Move object with the page
+              obj.set({
+                left: (obj.left || 0) + deltaX,
+              });
+              obj.setCoords();
 
-        // This object survived deletion - no need to move since pages moved already
-        // Objects will stay in place, which is the expected behavior after deletion
+              // If this is a framedImage, reapply its clip path
+              if (obj.type === "framedImage") {
+                const framedImage = obj as FramedImage;
+                const linkedFrame = framedImage.getLinkedFrame(canvas);
+                if (linkedFrame) {
+                  // Move the linked frame as well
+                  linkedFrame.set({
+                    left: (linkedFrame.left || 0) + deltaX,
+                  });
+                  linkedFrame.setCoords();
+
+                  // Reapply clip path to the image
+                  framedImage.applyFrameClip(linkedFrame);
+                }
+              }
+            }
+          });
+        }
       });
 
       canvas.requestRenderAll();
