@@ -21,6 +21,7 @@ import { GripVertical } from "lucide-react";
 import { PageHandle } from "./page-handle";
 import { Editor, PageInfo, PageTemplate } from "@/features/editor/types";
 import { TemplatePickerDialog } from "./template-picker-dialog";
+import { isFrameType, IFrame } from "@/features/editor/objects/image-frame";
 
 interface PageHandlesOverlayProps {
   editor: Editor;
@@ -42,6 +43,7 @@ interface SortablePageHandleProps {
   editor: Editor;
   onAddSpreadBefore: () => void;
   onAddSpreadAfter: () => void;
+  onChangeTemplate?: (pageNumber: number) => void;
   isVisible: boolean;
 }
 
@@ -52,6 +54,7 @@ const SortablePageHandle = ({
   editor,
   onAddSpreadBefore,
   onAddSpreadAfter,
+  onChangeTemplate,
   isVisible,
 }: SortablePageHandleProps) => {
   const {
@@ -79,6 +82,7 @@ const SortablePageHandle = ({
       editor={editor}
       onAddSpreadBefore={onAddSpreadBefore}
       onAddSpreadAfter={onAddSpreadAfter}
+      onChangeTemplate={onChangeTemplate}
       isDragging={isDragging}
       dragAttributes={attributes}
       dragListeners={listeners}
@@ -100,6 +104,9 @@ export const PageHandlesOverlay = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lastOverId, setLastOverId] = useState<string | null>(null);
   const [hoveredPageNumber, setHoveredPageNumber] = useState<number | null>(null);
+
+  // State for changing template
+  const [changeTemplatePageNumber, setChangeTemplatePageNumber] = useState<number | null>(null);
 
   // Ref for animation frame cleanup
   const rafIdRef = useRef<number | null>(null);
@@ -280,18 +287,74 @@ export const PageHandlesOverlay = ({
     setTemplateDialogOpen(true);
   };
 
+  const handleChangeTemplateClick = (pageNumber: number) => {
+    setChangeTemplatePageNumber(pageNumber);
+    setTemplateDialogOpen(true);
+  };
+
   const handleTemplatesSelected = (leftTemplate: PageTemplate, rightTemplate: PageTemplate) => {
-    if (!insertionContext) return;
+    if (changeTemplatePageNumber !== null) {
+      // Single-page mode: apply template directly (no confirmation dialog)
+      // This avoids the Radix UI pointer-events bug that occurs when chaining dialogs
+      // See: https://github.com/radix-ui/primitives/issues/1241
 
-    if (insertionContext.position === 'before' && insertionContext.spreadIndex === 0) {
-      editor.addSpreadAfter(0, leftTemplate, rightTemplate);
-      editor.moveSpread(1, 0);
-    } else {
-      editor.addSpreadAfter(insertionContext.spreadIndex, leftTemplate, rightTemplate);
+      // Clear any active selection first
+      editor.canvas.discardActiveObject();
+
+      // Get the workspace for this page
+      const workspace = editor.canvas
+        .getObjects()
+        .find((obj: any) =>
+          (obj.name === "clip" || obj.name?.startsWith("clip-page-")) &&
+          obj.pageNumber === changeTemplatePageNumber
+        );
+
+      if (workspace) {
+        // Get all frames on this page
+        const allObjects = editor.canvas.getObjects();
+        const wsBounds = workspace.getBoundingRect();
+
+        const framesToRemove = allObjects.filter((obj) => {
+          if (!isFrameType(obj.type)) return false;
+          const frame = obj as IFrame;
+
+          // Check if frame is on this page
+          const frameBounds = frame.getBoundingRect();
+          return (
+            frameBounds.left >= wsBounds.left &&
+            frameBounds.left < wsBounds.left + wsBounds.width &&
+            frameBounds.top >= wsBounds.top &&
+            frameBounds.top < wsBounds.top + wsBounds.height
+          );
+        });
+
+        // Remove frames and their linked images in batch
+        editor.canvas.remove(...framesToRemove.map((frame) => {
+          const linkedImage = (frame as IFrame).getLinkedImage(editor.canvas);
+          return linkedImage ? [linkedImage, frame] : [frame];
+        }).flat());
+      }
+
+      // Apply new template
+      editor.applyTemplateToPage(changeTemplatePageNumber, leftTemplate);
+      editor.canvas.renderAll();
+
+      // Reset state
+      setChangeTemplatePageNumber(null);
+      setTemplateDialogOpen(false);
+
+    } else if (insertionContext) {
+      // Spread mode: add spread (existing logic)
+      if (insertionContext.position === 'before' && insertionContext.spreadIndex === 0) {
+        editor.addSpreadAfter(0, leftTemplate, rightTemplate);
+        editor.moveSpread(1, 0);
+      } else {
+        editor.addSpreadAfter(insertionContext.spreadIndex, leftTemplate, rightTemplate);
+      }
+
+      setTemplateDialogOpen(false);
+      setInsertionContext(null);
     }
-
-    setTemplateDialogOpen(false);
-    setInsertionContext(null);
   };
 
   const handleDragStart = (event: any) => {
@@ -353,6 +416,7 @@ export const PageHandlesOverlay = ({
               editor={editor}
               onAddSpreadBefore={() => handleAddSpreadBefore(pos.pageNumber)}
               onAddSpreadAfter={() => handleAddSpreadAfter(pos.pageNumber)}
+              onChangeTemplate={handleChangeTemplateClick}
               isVisible={isDragging || pos.pageNumber === hoveredPageNumber}
             />
           ))}
@@ -376,8 +440,15 @@ export const PageHandlesOverlay = ({
       {/* Template picker dialog */}
       <TemplatePickerDialog
         open={templateDialogOpen}
-        onOpenChange={setTemplateDialogOpen}
+        onOpenChange={(open) => {
+          setTemplateDialogOpen(open);
+          // If dialog is closed without confirming, reset change template state
+          if (!open && changeTemplatePageNumber !== null) {
+            setChangeTemplatePageNumber(null);
+          }
+        }}
         onConfirm={handleTemplatesSelected}
+        mode={changeTemplatePageNumber !== null ? "single-page" : "spread"}
       />
     </>
   );

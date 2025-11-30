@@ -3818,21 +3818,29 @@ const buildEditor = ({
     },
 
     applyTemplateToPage: (pageNumber: number, template: PageTemplate) => {
+      console.log('[APPLY TEMPLATE] Starting applyTemplateToPage for page', pageNumber);
       const workspaces = getWorkspaces();
       const targetWorkspace = workspaces.find((ws: any) => ws.pageNumber === pageNumber) as fabric.Rect;
 
-      if (!targetWorkspace) return;
+      if (!targetWorkspace) {
+        console.log('[APPLY TEMPLATE] No workspace found for page', pageNumber);
+        return;
+      }
+
+      console.log('[APPLY TEMPLATE] Found workspace, adding frames:', template.frames.length);
 
       const pageLeft = targetWorkspace.left || 0;
       const pageTop = targetWorkspace.top || 0;
       const pageWidth = targetWorkspace.width || 2970;
       const pageHeight = targetWorkspace.height || 2100;
 
-      template.frames.forEach((frame) => {
+      template.frames.forEach((frame, idx) => {
         const frameLeft = pageLeft + (frame.x / 100) * pageWidth;
         const frameTop = pageTop + (frame.y / 100) * pageHeight;
         const frameWidth = (frame.width / 100) * pageWidth;
         const frameHeight = (frame.height / 100) * pageHeight;
+
+        console.log(`[APPLY TEMPLATE] Adding frame ${idx + 1}/${template.frames.length}`);
 
         // ImageFrame constructor now handles placeholder styles automatically
         const imageFrame = new ImageFrame({
@@ -3845,8 +3853,12 @@ const buildEditor = ({
         canvas.add(imageFrame);
       });
 
+      console.log('[APPLY TEMPLATE] All frames added, requesting render');
       canvas.requestRenderAll();
+
+      console.log('[APPLY TEMPLATE] Calling save()');
       save();
+      console.log('[APPLY TEMPLATE] Save completed');
     },
 
     redistributeImages: (uploadedImages: ImageMetadata[], style: AlbumStyle) => {

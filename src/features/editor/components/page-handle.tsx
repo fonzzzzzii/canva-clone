@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { GripVertical, MoreHorizontal, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { GripVertical, MoreHorizontal, ChevronLeft, ChevronRight, Plus, Layout } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ interface PageHandleProps {
   editor: Editor;
   onAddSpreadBefore: () => void;
   onAddSpreadAfter: () => void;
+  onChangeTemplate?: (pageNumber: number) => void;
   isDragging?: boolean;
   dragAttributes?: Record<string, any>;
   dragListeners?: Record<string, any>;
@@ -27,6 +28,7 @@ export const PageHandle = forwardRef<HTMLDivElement, PageHandleProps>(({
   editor,
   onAddSpreadBefore,
   onAddSpreadAfter,
+  onChangeTemplate,
   isDragging = false,
   dragAttributes,
   dragListeners,
@@ -91,6 +93,14 @@ export const PageHandle = forwardRef<HTMLDivElement, PageHandleProps>(({
           >
             <ChevronRight className="w-4 h-4 mr-2" />
             Move Right
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => onChangeTemplate?.(pageNumber)}
+            className="cursor-pointer"
+          >
+            <Layout className="w-4 h-4 mr-2" />
+            Change Template
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onAddSpreadBefore} className="cursor-pointer">

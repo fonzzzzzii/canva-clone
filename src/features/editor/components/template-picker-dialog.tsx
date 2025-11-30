@@ -25,6 +25,7 @@ interface TemplatePickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (leftTemplate: PageTemplate, rightTemplate: PageTemplate) => void;
+  mode?: "spread" | "single-page";
 }
 
 type Step = "left" | "right";
@@ -97,21 +98,25 @@ export const TemplatePickerDialog = ({
   open,
   onOpenChange,
   onConfirm,
+  mode = "spread",
 }: TemplatePickerDialogProps) => {
   const [step, setStep] = useState<Step>("left");
   const [leftTemplate, setLeftTemplate] = useState<PageTemplate | null>(null);
   const [rightTemplate, setRightTemplate] = useState<PageTemplate | null>(null);
+  const [singleTemplate, setSingleTemplate] = useState<PageTemplate | null>(null);
   const [activeCategory, setActiveCategory] = useState("blank");
 
   const handleTemplateSelect = useCallback(
     (template: PageTemplate) => {
-      if (step === "left") {
+      if (mode === "single-page") {
+        setSingleTemplate(template);
+      } else if (step === "left") {
         setLeftTemplate(template);
       } else {
         setRightTemplate(template);
       }
     },
-    [step]
+    [mode, step]
   );
 
   const handleNext = useCallback(() => {
@@ -128,7 +133,12 @@ export const TemplatePickerDialog = ({
   }, [step]);
 
   const handleConfirm = useCallback(() => {
-    if (leftTemplate && rightTemplate) {
+    if (mode === "single-page" && singleTemplate) {
+      onConfirm(singleTemplate, singleTemplate);
+      // Reset state
+      setSingleTemplate(null);
+      setActiveCategory("blank");
+    } else if (leftTemplate && rightTemplate) {
       onConfirm(leftTemplate, rightTemplate);
       // Reset state
       setStep("left");
@@ -136,7 +146,7 @@ export const TemplatePickerDialog = ({
       setRightTemplate(null);
       setActiveCategory("blank");
     }
-  }, [leftTemplate, rightTemplate, onConfirm]);
+  }, [mode, singleTemplate, leftTemplate, rightTemplate, onConfirm]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -145,6 +155,7 @@ export const TemplatePickerDialog = ({
         setStep("left");
         setLeftTemplate(null);
         setRightTemplate(null);
+        setSingleTemplate(null);
         setActiveCategory("blank");
       }
       onOpenChange(open);
@@ -161,7 +172,7 @@ export const TemplatePickerDialog = ({
       <DialogContent className="max-w-3xl h-[600px] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-0">
           <div className="flex items-center gap-3">
-            {step === "right" && (
+            {mode === "spread" && step === "right" && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -173,33 +184,39 @@ export const TemplatePickerDialog = ({
             )}
             <div>
               <DialogTitle className="text-lg">
-                {step === "left"
+                {mode === "single-page"
+                  ? "Select Page Template"
+                  : step === "left"
                   ? "Step 1: Select template for LEFT page"
                   : "Step 2: Select template for RIGHT page"}
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {step === "left"
+                {mode === "single-page"
+                  ? "Choose a layout for this page"
+                  : step === "left"
                   ? "Choose a layout for the left page of the new spread"
                   : "Choose a layout for the right page of the new spread"}
               </p>
             </div>
           </div>
 
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2 mt-4">
-            <div
-              className={cn(
-                "h-1 flex-1 rounded-full transition-colors",
-                step === "left" ? "bg-blue-500" : "bg-blue-500"
-              )}
-            />
-            <div
-              className={cn(
-                "h-1 flex-1 rounded-full transition-colors",
-                step === "right" ? "bg-blue-500" : "bg-gray-200"
-              )}
-            />
-          </div>
+          {/* Progress indicator - only show in spread mode */}
+          {mode === "spread" && (
+            <div className="flex items-center gap-2 mt-4">
+              <div
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors",
+                  step === "left" ? "bg-blue-500" : "bg-blue-500"
+                )}
+              />
+              <div
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors",
+                  step === "right" ? "bg-blue-500" : "bg-gray-200"
+                )}
+              />
+            </div>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden">
@@ -233,7 +250,9 @@ export const TemplatePickerDialog = ({
                         key={template.id}
                         template={template}
                         isSelected={
-                          step === "left"
+                          mode === "single-page"
+                            ? singleTemplate?.id === template.id
+                            : step === "left"
                             ? leftTemplate?.id === template.id
                             : rightTemplate?.id === template.id
                         }
@@ -252,22 +271,22 @@ export const TemplatePickerDialog = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Selected:</span>
-              <div className="flex items-center gap-2">
-                {/* Left page preview */}
+              {mode === "single-page" ? (
+                /* Single page preview */
                 <div
                   className={cn(
                     "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
-                    leftTemplate
+                    singleTemplate
                       ? "bg-blue-50 border-blue-300"
                       : "bg-gray-50 border-gray-200 text-gray-400"
                   )}
                 >
-                  {leftTemplate ? (
+                  {singleTemplate ? (
                     <div className="w-full h-full p-0.5 relative">
-                      {leftTemplate.frames.length === 0 ? (
+                      {singleTemplate.frames.length === 0 ? (
                         <div className="w-full h-full border border-dashed border-gray-300" />
                       ) : (
-                        leftTemplate.frames.map((frame, idx) => (
+                        singleTemplate.frames.map((frame, idx) => (
                           <div
                             key={idx}
                             className="absolute bg-blue-200"
@@ -282,49 +301,91 @@ export const TemplatePickerDialog = ({
                       )}
                     </div>
                   ) : (
-                    "L"
+                    "None"
                   )}
                 </div>
-                {/* Right page preview */}
-                <div
-                  className={cn(
-                    "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
-                    rightTemplate
-                      ? "bg-blue-50 border-blue-300"
-                      : "bg-gray-50 border-gray-200 text-gray-400"
-                  )}
-                >
-                  {rightTemplate ? (
-                    <div className="w-full h-full p-0.5 relative">
-                      {rightTemplate.frames.length === 0 ? (
-                        <div className="w-full h-full border border-dashed border-gray-300" />
-                      ) : (
-                        rightTemplate.frames.map((frame, idx) => (
-                          <div
-                            key={idx}
-                            className="absolute bg-blue-200"
-                            style={{
-                              left: `${frame.x}%`,
-                              top: `${frame.y}%`,
-                              width: `${frame.width}%`,
-                              height: `${frame.height}%`,
-                            }}
-                          />
-                        ))
-                      )}
-                    </div>
-                  ) : (
-                    "R"
-                  )}
+              ) : (
+                <div className="flex items-center gap-2">
+                  {/* Left page preview */}
+                  <div
+                    className={cn(
+                      "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
+                      leftTemplate
+                        ? "bg-blue-50 border-blue-300"
+                        : "bg-gray-50 border-gray-200 text-gray-400"
+                    )}
+                  >
+                    {leftTemplate ? (
+                      <div className="w-full h-full p-0.5 relative">
+                        {leftTemplate.frames.length === 0 ? (
+                          <div className="w-full h-full border border-dashed border-gray-300" />
+                        ) : (
+                          leftTemplate.frames.map((frame, idx) => (
+                            <div
+                              key={idx}
+                              className="absolute bg-blue-200"
+                              style={{
+                                left: `${frame.x}%`,
+                                top: `${frame.y}%`,
+                                width: `${frame.width}%`,
+                                height: `${frame.height}%`,
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      "L"
+                    )}
+                  </div>
+                  {/* Right page preview */}
+                  <div
+                    className={cn(
+                      "w-16 aspect-[99/70] border rounded flex items-center justify-center text-xs",
+                      rightTemplate
+                        ? "bg-blue-50 border-blue-300"
+                        : "bg-gray-50 border-gray-200 text-gray-400"
+                    )}
+                  >
+                    {rightTemplate ? (
+                      <div className="w-full h-full p-0.5 relative">
+                        {rightTemplate.frames.length === 0 ? (
+                          <div className="w-full h-full border border-dashed border-gray-300" />
+                        ) : (
+                          rightTemplate.frames.map((frame, idx) => (
+                            <div
+                              key={idx}
+                              className="absolute bg-blue-200"
+                              style={{
+                                left: `${frame.x}%`,
+                                top: `${frame.y}%`,
+                                width: `${frame.width}%`,
+                                height: `${frame.height}%`,
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      "R"
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              {step === "left" ? (
+              {mode === "single-page" ? (
+                <Button
+                  onClick={handleConfirm}
+                  disabled={!singleTemplate}
+                >
+                  Clear & Apply Template
+                </Button>
+              ) : step === "left" ? (
                 <Button
                   onClick={handleNext}
                   disabled={!leftTemplate}
