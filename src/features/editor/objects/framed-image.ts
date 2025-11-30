@@ -19,6 +19,9 @@ export class FramedImage extends fabric.Image {
   // Store the custom scale (if user scales in edit mode)
   public customScaleX: number = 1;
   public customScaleY: number = 1;
+  // Shift key constraint tracking for straight-line movement
+  public _initialDragPosition?: { x: number; y: number }; // Position when drag started (captured on mouse down)
+  public _lockedAxis?: 'horizontal' | 'vertical';
 
   constructor(
     element: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | string,
@@ -100,8 +103,8 @@ export class FramedImage extends fabric.Image {
 
     // Add visual indicator that we're in edit mode
     (this as any).set({
-      borderColor: "#10b981",
-      cornerColor: "#10b981",
+      borderColor: "#06b6d4",  // Bright cyan for better visibility
+      cornerColor: "#06b6d4",
       cornerStyle: "circle",
       transparentCorners: false,
       cornerSize: 12,
@@ -115,8 +118,8 @@ export class FramedImage extends fabric.Image {
 
       // Show frame border in edit mode
       frame.set({
-        stroke: "#10b981",
-        strokeWidth: 2,
+        stroke: "#06b6d4",  // Match image border color
+        strokeWidth: 4,     // Thicker for better visibility
         strokeDashArray: [5, 5],
       });
     }

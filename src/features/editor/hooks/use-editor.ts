@@ -4755,6 +4755,45 @@ export const useEditor = ({
     const handleObjectMoving = (e: fabric.IEvent) => {
       const target = e.target;
 
+      // Shift key constraint for edit mode images
+      if (target?.type === "framedImage") {
+        const framedImage = target as FramedImage;
+
+        if (framedImage.isInEditMode && e.e && (e.e as any).shiftKey && framedImage._initialDragPosition) {
+          const initialPos = framedImage._initialDragPosition;
+          const currentX = framedImage.left || 0;
+          const currentY = framedImage.top || 0;
+
+          // Calculate deltas from initial position to determine axis
+          const deltaX = Math.abs(currentX - initialPos.x);
+          const deltaY = Math.abs(currentY - initialPos.y);
+
+          // Lock to axis with larger initial movement
+          if (!framedImage._lockedAxis) {
+            // Determine axis after minimum movement (5px threshold)
+            if (deltaX > 5 || deltaY > 5) {
+              framedImage._lockedAxis = deltaX > deltaY ? 'horizontal' : 'vertical';
+            }
+          }
+
+          // Apply constraint based on locked axis - maintain ORIGINAL position on constrained axis
+          if (framedImage._lockedAxis === 'horizontal') {
+            // Allow horizontal movement, lock vertical to original Y
+            framedImage.set({ top: initialPos.y });
+          } else if (framedImage._lockedAxis === 'vertical') {
+            // Allow vertical movement, lock horizontal to original X
+            framedImage.set({ left: initialPos.x });
+          }
+
+          framedImage.setCoords();
+        } else {
+          // Shift not pressed - clear axis lock
+          if (target?.type === "framedImage") {
+            delete (target as FramedImage)._lockedAxis;
+          }
+        }
+      }
+
       // Handle ActiveSelection (multi-select)
       if (target?.type === "activeSelection") {
         const selection = target as fabric.ActiveSelection;
@@ -5567,14 +5606,43 @@ export const useEditor = ({
       }
     };
 
+    const handleObjectMouseDown = (e: fabric.IEvent) => {
+      const target = e.target;
+      // Capture the starting position when user begins dragging an image in edit mode
+      if (target?.type === "framedImage") {
+        const framedImage = target as FramedImage;
+        if (framedImage.isInEditMode) {
+          framedImage._initialDragPosition = {
+            x: framedImage.left || 0,
+            y: framedImage.top || 0,
+          };
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      // Clear shift constraint tracking when mouse is released
+      canvas.getObjects().forEach((obj) => {
+        if (obj.type === "framedImage") {
+          const img = obj as any;
+          delete img._initialDragPosition;
+          delete img._lockedAxis;
+        }
+      });
+    };
+
+    canvas.on("mouse:down", handleObjectMouseDown);
     canvas.on("object:moving", handleObjectMoving);
     canvas.on("object:scaling", handleObjectScaling);
     canvas.on("object:modified", handleObjectModified);
+    canvas.on("mouse:up", handleMouseUp);
 
     return () => {
+      canvas.off("mouse:down", handleObjectMouseDown);
       canvas.off("object:moving", handleObjectMoving);
       canvas.off("object:scaling", handleObjectScaling);
       canvas.off("object:modified", handleObjectModified);
+      canvas.off("mouse:up", handleMouseUp);
     };
   }, [canvas, focusedPageNumber, setFocusedPageNumber]);
 
