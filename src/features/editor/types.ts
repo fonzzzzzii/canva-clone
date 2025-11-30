@@ -373,6 +373,7 @@ export interface Editor {
   deleteSpread: (spreadIndex: number) => void;
   applyTemplateToPage: (pageNumber: number, template: PageTemplate) => void;
   redistributeImages: (uploadedImages: any[], style: AlbumStyle) => void;
+  fillFramesWithImages: (images: { url: string }[]) => void;
   // Page reordering
   movePage: (fromPageNumber: number, toPageNumber: number) => void;
   moveSpread: (fromSpreadIndex: number, toSpreadIndex: number) => void;

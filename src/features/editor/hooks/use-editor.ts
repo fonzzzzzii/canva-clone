@@ -4007,6 +4007,119 @@ const buildEditor = ({
         }, reviverFunction);
       });
     },
+
+    fillFramesWithImages: (images: { url: string }[]) => {
+      if (images.length === 0) return;
+
+      // Get all frames across all pages
+      const allFrames = canvas.getObjects().filter((obj) => isFrameType(obj.type)) as IFrame[];
+
+      if (allFrames.length === 0) return;
+
+      // Sort frames by position (top-to-bottom, left-to-right within each row)
+      allFrames.sort((a, b) => {
+        const aTop = a.top || 0;
+        const bTop = b.top || 0;
+        // If frames are on different rows (more than 100px apart), sort by top
+        if (Math.abs(aTop - bTop) > 100) return aTop - bTop;
+        // Same row, sort by left
+        return (a.left || 0) - (b.left || 0);
+      });
+
+      // Fill frames with images in order
+      const framesToFill = Math.min(images.length, allFrames.length);
+      for (let i = 0; i < framesToFill; i++) {
+        // Use the existing replaceFrameImage logic
+        const frame = allFrames[i];
+        const imageUrl = images[i].url;
+
+        // Remove existing linked image if any
+        const existingImage = frame.getLinkedImage(canvas);
+        if (existingImage) {
+          canvas.remove(existingImage);
+        }
+
+        // Load and add new image
+        fabric.Image.fromURL(
+          imageUrl,
+          (loadedImage) => {
+            const imgWidth = loadedImage.width || 1;
+            const imgHeight = loadedImage.height || 1;
+
+            // Get frame dimensions
+            let frameWidth: number;
+            let frameHeight: number;
+            if (frame.type === "circleFrame") {
+              const radiusX = ((frame as any).radius || 100) * (frame.scaleX || 1);
+              const radiusY = ((frame as any).radius || 100) * (frame.scaleY || 1);
+              frameWidth = radiusX * 2;
+              frameHeight = radiusY * 2;
+            } else {
+              frameWidth = ((frame as any).width || 100) * (frame.scaleX || 1);
+              frameHeight = ((frame as any).height || 100) * (frame.scaleY || 1);
+            }
+
+            // Calculate scale to cover the frame
+            const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight);
+
+            // Generate new image ID
+            const newImageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Calculate frame center
+            let frameCenterX: number;
+            let frameCenterY: number;
+            if (frame.type === "circleFrame") {
+              const radiusX = ((frame as any).radius || 200) * (frame.scaleX || 1);
+              const radiusY = ((frame as any).radius || 200) * (frame.scaleY || 1);
+              frameCenterX = (frame.left || 0) + radiusX;
+              frameCenterY = (frame.top || 0) + radiusY;
+            } else {
+              const center = (frame as any).getCenterPoint();
+              frameCenterX = center.x;
+              frameCenterY = center.y;
+            }
+
+            // Create new framed image
+            const element = (loadedImage as any).getElement();
+            const newFramedImage = new FramedImage(element, {
+              id: newImageId,
+              linkedFrameId: frame.id,
+              imageUrl: imageUrl,
+              left: frameCenterX,
+              top: frameCenterY,
+              originX: "center",
+              originY: "center",
+            });
+
+            // Scale image to cover the frame
+            newFramedImage.scale(scale);
+            newFramedImage.customScaleX = scale;
+            newFramedImage.customScaleY = scale;
+
+            // Update frame's linked image ID
+            frame.linkedImageId = newImageId;
+
+            // Apply clipping
+            newFramedImage.applyFrameClip(frame);
+
+            // Add image behind the frame
+            const frameIndex = canvas.getObjects().indexOf(frame);
+            canvas.insertAt(newFramedImage, frameIndex, false);
+
+            // Update frame styling
+            frame.updatePlaceholderStyle(canvas);
+
+            canvas.requestRenderAll();
+          },
+          { crossOrigin: "anonymous" }
+        );
+      }
+
+      // Save after a short delay to allow images to load
+      setTimeout(() => {
+        save();
+      }, 500);
+    },
   };
 };
 

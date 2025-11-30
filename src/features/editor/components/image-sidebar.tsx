@@ -144,7 +144,7 @@ export const ImageSidebar = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hoveredFrame, setHoveredFrame] = useState<any>(null);
   const [showRedistributeDialog, setShowRedistributeDialog] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState<AlbumStyle>("modern");
+  const [selectedStyle, setSelectedStyle] = useState<AlbumStyle | "current">("current");
   const sidebarRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -447,8 +447,9 @@ export const ImageSidebar = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Redistribute Images</AlertDialogTitle>
             <AlertDialogDescription>
-              This will completely regenerate your album layout based on the current image order.
-              All manual edits will be lost. This action cannot be undone.
+              {selectedStyle === "current"
+                ? "This will fill all existing frames with images from your library in order."
+                : "This will completely regenerate your album layout based on the current image order. All manual edits will be lost."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -457,12 +458,21 @@ export const ImageSidebar = ({
               <label className="text-sm font-medium">Album Style</label>
               <Select
                 value={selectedStyle}
-                onValueChange={(value) => setSelectedStyle(value as AlbumStyle)}
+                onValueChange={(value) => setSelectedStyle(value as AlbumStyle | "current")}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="current">
+                    <div className="flex items-center gap-3">
+                      <StylePreview style="current" size="sm" className="flex-shrink-0" />
+                      <div>
+                        <div className="font-medium">Current Layout</div>
+                        <div className="text-xs text-muted-foreground">Fill existing frames</div>
+                      </div>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="classic">
                     <div className="flex items-center gap-3">
                       <StylePreview style="classic" size="sm" className="flex-shrink-0" />
@@ -500,12 +510,16 @@ export const ImageSidebar = ({
             <AlertDialogAction
               onClick={() => {
                 if (editor) {
-                  editor.redistributeImages(uploadedImages, selectedStyle);
+                  if (selectedStyle === "current") {
+                    editor.fillFramesWithImages(uploadedImages);
+                  } else {
+                    editor.redistributeImages(uploadedImages, selectedStyle);
+                  }
                 }
                 setShowRedistributeDialog(false);
               }}
             >
-              Redistribute
+              {selectedStyle === "current" ? "Fill Frames" : "Redistribute"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,7 +1,7 @@
 import { AlbumStyle } from "@/features/editor/utils/auto-layout";
 
 interface StylePreviewProps {
-  style: AlbumStyle;
+  style: AlbumStyle | "current";
   className?: string;
   size?: "sm" | "md";
 }
@@ -16,7 +16,13 @@ export const StylePreview = ({ style, className, size = "md" }: StylePreviewProp
   const dimensions = sizeMap[size];
 
   // Define representative layouts for each style
-  const layouts = {
+  const layouts: Record<AlbumStyle | "current", { frames: Array<{ x: number; y: number; width: number; height: number }> }> = {
+    current: {
+      // Show a refresh/keep-current icon layout (single frame with arrows)
+      frames: [
+        { x: 15, y: 15, width: 70, height: 70 },
+      ],
+    },
     classic: {
       // Show double-vertical-half template (2 frames)
       frames: [
